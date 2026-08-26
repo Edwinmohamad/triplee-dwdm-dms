@@ -5,7 +5,6 @@ from pathlib import Path
 
 from django.conf import settings
 from django.core.exceptions import SuspiciousFileOperation
-from django.utils import timezone
 
 
 def _clean_component(value, fallback="item", max_length=100):
@@ -38,24 +37,57 @@ def checksum_file(uploaded_file):
     return digest.hexdigest()
 
 
+def _short_site_name(value):
+    name = re.sub(r"^(?:HUT|SITE)\.?\s*", "", str(value).strip(), flags=re.IGNORECASE)
+    acronyms = {"BSC", "PNB", "MTI", "POP"}
+    words = re.findall(r"[A-Za-z0-9]+", name)
+    normalized = [
+        word.upper() if word.upper() in acronyms else word.capitalize()
+        for word in words
+    ]
+    return "-".join(normalized) or "Site"
+
+
 def document_filename(document, revision_no, original_filename, attachment_no=1):
     extension = Path(original_filename).suffix.lower()
-    original_stem = _clean_component(Path(original_filename).stem, "file")[:45]
-    site_name = _clean_component(
-        document.batch.site.name.replace(".", " "),
-        "site",
-        max_length=70,
-    )
-    date = timezone.localdate().strftime("%Y%m%d")
+    file_suffix = f"_{attachment_no:02d}" if attachment_no > 1 else ""
     base = _clean_component(
-        f"{site_name}_{document.batch.site.tower_id}_"
-        f"B{document.batch.batch_no:02d}_{document.document_type}_"
-        f"R{revision_no:03d}_F{attachment_no:02d}_"
-        f"{original_stem}_{date}",
+        f"{document.document_type}_"
+        f"{_short_site_name(document.batch.site.name)}_"
+        f"{document.batch.site.tower_id}{file_suffix}",
         "document",
-        max_length=220,
+        max_length=180,
     )
     return f"{base}{extension}"
+
+
+def download_filename(entity):
+    """Return the short public filename for an attachment or legacy version."""
+    if hasattr(entity, "version"):
+        version = entity.version
+        attachment_no = entity.sequence_no
+    else:
+        version = entity
+        attachment_no = 1
+    original_filename = entity.original_filename or entity.stored_filename
+    return document_filename(
+        version.document,
+        version.revision_no,
+        original_filename,
+        attachment_no,
+    )
+
+
+def bundle_filename(version):
+    document = version.document
+    extensionless = _clean_component(
+        f"{document.document_type}_"
+        f"{_short_site_name(document.batch.site.name)}_"
+        f"{document.batch.site.tower_id}",
+        "document-revision",
+        max_length=180,
+    )
+    return f"{extensionless}.zip"
 
 
 def store_document_file(document, uploaded_file, revision_no, attachment_no=1):

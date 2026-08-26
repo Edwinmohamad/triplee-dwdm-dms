@@ -45,9 +45,17 @@ from .models import (
     User,
 )
 from .services.audit import client_ip, log_activity
+from .services.document_preview import (
+    PreviewConversionError,
+    can_convert_to_pdf,
+    can_preview_inline,
+    convert_office_to_pdf,
+)
 from .services.local_storage import (
+    bundle_filename,
     checksum_file,
     delete_document_file,
+    download_filename,
     open_document_file,
     store_document_file,
 )
@@ -361,7 +369,7 @@ def document_detail(request, pk):
             "review_form": ReviewForm(),
             "comment_form": CommentForm(),
             "can_upload": request.user.role in UPLOAD_ROLES,
-            "can_delete_files": request.user.role in UPLOAD_ROLES,
+            "can_delete_files": request.user.role == User.Role.SUPER_ADMIN,
             "can_review": request.user.role in REVIEW_ROLES,
             "can_upload_file": (
                 request.user.role in UPLOAD_ROLES
@@ -379,7 +387,6 @@ def document_detail(request, pk):
             ),
             "can_reopen": request.user.role in ADMIN_ROLES and document.status == Document.Status.APPROVED,
             "historical_status_without_file": historical_status_without_file,
-            "latest_version_id": latest_version.pk if latest_version else None,
         },
     )
 
@@ -582,32 +589,23 @@ def document_submit(request, pk):
     return redirect("document_detail", pk=pk)
 
 
-@role_required(*UPLOAD_ROLES)
+@role_required(User.Role.SUPER_ADMIN)
 @require_POST
 def attachment_delete(request, attachment_pk):
     attachment = get_object_or_404(
-        DocumentAttachment.objects.select_related("version__document"),
+        DocumentAttachment.objects.select_related(
+            "version__document__batch__site"
+        ),
         pk=attachment_pk,
     )
     version = attachment.version
     document = version.document
     latest = document.latest_version
-    if (
-        version.is_locked
-        or not latest
-        or latest.pk != version.pk
-        or document.status not in {Document.Status.UPLOADED, Document.Status.DRAFT}
-    ):
-        messages.error(
-            request,
-            "File pada revisi yang sudah disubmit atau dikunci tidak dapat dihapus.",
-        )
-        return redirect("document_detail", pk=document.pk)
-
     storage_key = attachment.storage_key
     version_id = version.pk
     revision_no = version.revision_no
-    deleted_filename = attachment.stored_filename
+    deleted_filename = download_filename(attachment)
+    stored_filename = attachment.stored_filename
     deleted_checksum = attachment.checksum_sha256
     with transaction.atomic():
         attachment.delete()
@@ -632,15 +630,53 @@ def attachment_delete(request, attachment_pk):
             )
             document.save(update_fields=["updated_at"])
         else:
-            version.delete()
-            document.status = (
-                Document.Status.REVISION_REQUIRED
-                if document.versions.exists()
-                else Document.Status.NOT_STARTED
-            )
-            document.approved_at = None
-            if document.status == Document.Status.NOT_STARTED:
-                document.submitted_at = None
+            preserve_audit = version.is_locked or version.reviews.exists()
+            if preserve_audit:
+                deletion_note = (
+                    f"[{timezone.localtime():%d-%m-%Y %H:%M}] "
+                    f"File terakhir dihapus oleh Super Admin {request.user}."
+                )
+                version.storage_key = (
+                    f"__deleted__/version-{version.pk}-"
+                    f"{timezone.now():%Y%m%d%H%M%S%f}"
+                )
+                version.stored_filename = deleted_filename
+                version.original_filename = attachment.original_filename
+                version.mime_type = "application/octet-stream"
+                version.file_size = 0
+                version.checksum_sha256 = "0" * 64
+                version.change_summary = "\n".join(
+                    item for item in [version.change_summary, deletion_note] if item
+                )
+                version.save(
+                    update_fields=[
+                        "storage_key",
+                        "stored_filename",
+                        "original_filename",
+                        "mime_type",
+                        "file_size",
+                        "checksum_sha256",
+                        "change_summary",
+                    ]
+                )
+            else:
+                version.delete()
+
+            if latest and latest.pk == version_id:
+                has_previous_file = (
+                    document.versions.exclude(pk=version_id)
+                    .filter(file_size__gt=0)
+                    .exclude(storage_key__startswith="__deleted__/")
+                    .exists()
+                )
+                document.status = (
+                    Document.Status.REVISION_REQUIRED
+                    if has_previous_file
+                    else Document.Status.NOT_STARTED
+                )
+                document.approved_at = None
+                if document.status == Document.Status.NOT_STARTED:
+                    document.submitted_at = None
             document.save(
                 update_fields=["status", "submitted_at", "approved_at", "updated_at"]
             )
@@ -661,6 +697,7 @@ def attachment_delete(request, attachment_pk):
             "version_id": version_id,
             "revision": revision_no,
             "stored_filename": deleted_filename,
+            "physical_filename": stored_filename,
             "checksum": deleted_checksum,
         },
     )
@@ -767,15 +804,53 @@ def _stored_file_response(request, entity, document_id, mode="download"):
     except Exception as exc:
         messages.error(request, f"File tidak dapat diambil dari server: {exc}")
         return redirect("document_detail", pk=document_id)
-    inline = mode == "preview" and entity.mime_type in {
-        "application/pdf",
-        "image/jpeg",
-        "image/png",
-    }
+    filename = download_filename(entity)
+    if mode == "preview" and can_convert_to_pdf(filename):
+        try:
+            preview = convert_office_to_pdf(handle, filename)
+        except PreviewConversionError as exc:
+            handle.close()
+            return render(
+                request,
+                "document_preview_unavailable.html",
+                {
+                    "document_id": document_id,
+                    "reason": str(exc),
+                    "download_url": request.path.replace("/preview/", "/download/"),
+                },
+            )
+        handle.close()
+        response = FileResponse(
+            preview,
+            as_attachment=False,
+            filename=f"{Path(filename).stem}.pdf",
+            content_type="application/pdf",
+        )
+        log_activity(
+            request,
+            "DOCUMENT_PREVIEWED",
+            entity,
+            f"{entity} dipreview sebagai PDF",
+        )
+        return response
+
+    if mode == "preview" and not can_preview_inline(entity.mime_type):
+        handle.close()
+        return render(
+            request,
+            "document_preview_unavailable.html",
+            {
+                "document_id": document_id,
+                "reason": "Format file ini belum dapat ditampilkan langsung di browser.",
+                "download_url": request.path.replace("/preview/", "/download/"),
+            },
+        )
+
+    inline = mode == "preview"
     response = FileResponse(
         handle,
         as_attachment=not inline,
-        filename=entity.stored_filename,
+        filename=filename,
         content_type=entity.mime_type,
     )
     log_activity(
@@ -804,12 +879,17 @@ def attachment_file(request, attachment_pk, mode="download"):
 @login_required
 def document_file(request, version_pk, mode="download"):
     version = get_object_or_404(
-        DocumentVersion.objects.select_related("document").prefetch_related("attachments"),
+        DocumentVersion.objects.select_related(
+            "document__batch__site"
+        ).prefetch_related("attachments"),
         pk=version_pk,
     )
     attachment = version.attachments.first()
     if attachment:
         return _stored_file_response(request, attachment, version.document_id, mode)
+    if not version.has_file:
+        messages.error(request, "File pada revisi ini sudah dihapus oleh Super Admin.")
+        return redirect("document_detail", pk=version.document_id)
     return _stored_file_response(request, version, version.document_id, mode)
 
 
@@ -823,15 +903,16 @@ def version_download_all(request, version_pk):
     )
     attachments = list(version.attachments.all())
     if not attachments:
+        if not version.has_file:
+            messages.error(request, "File pada revisi ini sudah dihapus oleh Super Admin.")
+            return redirect("document_detail", pk=version.document_id)
         return document_file(request, version_pk, mode="download")
 
     bundle = SpooledTemporaryFile(max_size=16 * 1024 * 1024, mode="w+b")
     try:
         with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             for attachment in attachments:
-                archive_name = Path(
-                    attachment.stored_filename.replace("\\", "/")
-                ).name
+                archive_name = download_filename(attachment)
                 with open_document_file(attachment.storage_key) as source:
                     with archive.open(archive_name, "w") as target:
                         shutil.copyfileobj(source, target, length=1024 * 1024)
@@ -841,11 +922,7 @@ def version_download_all(request, version_pk):
         messages.error(request, f"Paket ZIP tidak dapat dibuat: {exc}")
         return redirect("document_detail", pk=version.document_id)
 
-    site = version.document.batch.site
-    filename = (
-        f"{site.tower_id}_BATCH-{version.document.batch.batch_no:02d}_"
-        f"{version.document.document_type}_REV-{version.revision_no:03d}.zip"
-    )
+    filename = bundle_filename(version)
     log_activity(
         request,
         "DOCUMENT_BUNDLE_DOWNLOADED",

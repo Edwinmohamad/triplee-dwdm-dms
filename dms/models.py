@@ -200,6 +200,10 @@ class DocumentVersion(models.Model):
     def __str__(self):
         return f"{self.document} Rev {self.revision_no}"
 
+    @property
+    def has_file(self):
+        return self.file_size > 0 and not self.storage_key.startswith("__deleted__/")
+
 
 class DocumentAttachment(models.Model):
     version = models.ForeignKey(

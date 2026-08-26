@@ -19,7 +19,13 @@ from .models import (
     Site,
     User,
 )
-from .services.local_storage import open_document_file, store_document_file
+from .services.local_storage import (
+    bundle_filename,
+    document_filename,
+    download_filename,
+    open_document_file,
+    store_document_file,
+)
 
 
 class LocalStorageTests(TestCase):
@@ -31,6 +37,10 @@ class LocalStorageTests(TestCase):
         ).exclude(batch__status=InstallationBatch.Status.PENDING_INSTALLATION).first()
 
     def test_document_is_stored_in_structured_relative_path(self):
+        document = Document.objects.select_related("batch__site__project").get(
+            document_type=Document.Type.FATP,
+            batch__site__tower_id="SUM-BB-KBA-0057",
+        )
         with TemporaryDirectory() as temporary_root, override_settings(
             DOCUMENT_STORAGE_ROOT=temporary_root
         ):
@@ -39,17 +49,31 @@ class LocalStorageTests(TestCase):
                 b"test document",
                 content_type="application/pdf",
             )
-            result = store_document_file(self.document, uploaded, 0)
+            result = store_document_file(document, uploaded, 0)
             stored_path = Path(temporary_root) / result["storage_key"]
 
             self.assertTrue(stored_path.is_file())
             self.assertIn("BATCH-", result["storage_key"])
             self.assertIn("REV-000", result["storage_key"])
-            self.assertIn(
-                self.document.batch.site.name.replace(" ", "-"),
+            self.assertEqual(
                 result["stored_filename"],
+                document_filename(document, 0, uploaded.name, 1),
+            )
+            self.assertEqual(
+                result["stored_filename"],
+                "FATP_Koba_SUM-BB-KBA-0057.pdf",
             )
             self.assertEqual(stored_path.read_bytes(), b"test document")
+
+    def test_additional_qc_file_uses_short_sequence_suffix(self):
+        document = Document.objects.select_related("batch__site").get(
+            document_type=Document.Type.QC,
+            batch__site__tower_id="SUM-BB-KBA-0057",
+        )
+
+        filename = document_filename(document, 0, "Rack Photo.JPG", 2)
+
+        self.assertEqual(filename, "QC_Koba_SUM-BB-KBA-0057_02.jpg")
 
     def test_storage_key_cannot_escape_document_root(self):
         with TemporaryDirectory() as temporary_root, override_settings(
@@ -339,14 +363,94 @@ class WorkflowTests(TestCase):
         self.client.force_login(self.reviewer)
         response = self.client.get(reverse("document_download", args=[self.version.pk]))
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response["Content-Disposition"], 'attachment; filename="test.pdf"')
+        self.assertEqual(
+            response["Content-Disposition"],
+            f'attachment; filename="{download_filename(self.version)}"',
+        )
+
+    @patch("dms.views.convert_office_to_pdf")
+    @patch("dms.views.open_document_file")
+    def test_docx_preview_is_converted_and_opened_inline(
+        self, download_mock, convert_mock
+    ):
+        import io
+
+        self.version.original_filename = "Report FATP.docx"
+        self.version.stored_filename = "report-fatp.docx"
+        self.version.mime_type = (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        self.version.save(
+            update_fields=["original_filename", "stored_filename", "mime_type"]
+        )
+        download_mock.return_value = io.BytesIO(b"docx")
+        convert_mock.return_value = io.BytesIO(b"%PDF-1.7 preview")
+        self.client.force_login(self.reviewer)
+
+        response = self.client.get(
+            reverse("document_preview", args=[self.version.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertTrue(response["Content-Disposition"].startswith("inline;"))
+        self.assertNotIn("attachment;", response["Content-Disposition"])
+        convert_mock.assert_called_once()
+
+    @patch("dms.views.convert_office_to_pdf")
+    @patch("dms.views.open_document_file")
+    def test_docx_download_keeps_original_file(
+        self, download_mock, convert_mock
+    ):
+        import io
+
+        self.version.original_filename = "Report FATP.docx"
+        self.version.stored_filename = "report-fatp.docx"
+        self.version.mime_type = (
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+        )
+        self.version.save(
+            update_fields=["original_filename", "stored_filename", "mime_type"]
+        )
+        download_mock.return_value = io.BytesIO(b"docx")
+        self.client.force_login(self.reviewer)
+
+        response = self.client.get(
+            reverse("document_download", args=[self.version.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response["Content-Disposition"].startswith("attachment;"))
+        self.assertTrue(response["Content-Disposition"].endswith('.docx"'))
+        convert_mock.assert_not_called()
+
+    @patch("dms.views.open_document_file")
+    def test_unsupported_preview_does_not_force_download(self, download_mock):
+        import io
+
+        self.version.original_filename = "archive.zip"
+        self.version.stored_filename = "archive.zip"
+        self.version.mime_type = "application/zip"
+        self.version.save(
+            update_fields=["original_filename", "stored_filename", "mime_type"]
+        )
+        download_mock.return_value = io.BytesIO(b"zip")
+        self.client.force_login(self.reviewer)
+
+        response = self.client.get(
+            reverse("document_preview", args=[self.version.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Preview belum tersedia")
+        self.assertNotIn("Content-Disposition", response)
 
     @patch("dms.views.open_document_file")
     def test_nokia_can_download_all_revision_attachments_as_zip(self, download_mock):
         import io
         import zipfile
 
-        DocumentAttachment.objects.create(
+        first_attachment = DocumentAttachment.objects.create(
             version=self.version,
             sequence_no=1,
             storage_key="DWDM/test.pdf",
@@ -356,7 +460,7 @@ class WorkflowTests(TestCase):
             file_size=5,
             checksum_sha256="b" * 64,
         )
-        DocumentAttachment.objects.create(
+        second_attachment = DocumentAttachment.objects.create(
             version=self.version,
             sequence_no=2,
             storage_key="DWDM/test-2.jpg",
@@ -382,8 +486,15 @@ class WorkflowTests(TestCase):
         with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
             self.assertEqual(
                 archive.namelist(),
-                ["site-qc-f01.pdf", "site-qc-f02.jpg"],
+                [
+                    download_filename(first_attachment),
+                    download_filename(second_attachment),
+                ],
             )
+        self.assertEqual(
+            response["Content-Disposition"],
+            f'attachment; filename="{bundle_filename(self.version)}"',
+        )
 
     @patch("dms.views.delete_document_file")
     def test_triplee_can_delete_last_file_from_open_revision(self, delete_mock):
@@ -489,6 +600,73 @@ class WorkflowTests(TestCase):
             file_size=5,
             checksum_sha256="1" * 64,
         )
+
+        response = self.client.post(
+            reverse("attachment_delete", args=[attachment.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(DocumentAttachment.objects.filter(pk=attachment.pk).exists())
+        delete_mock.assert_not_called()
+
+    @patch("dms.views.delete_document_file")
+    def test_superadmin_can_delete_last_file_from_approved_revision_and_keep_audit(
+        self, delete_mock
+    ):
+        attachment = DocumentAttachment.objects.create(
+            version=self.version,
+            sequence_no=1,
+            storage_key="DWDM/approved-file.pdf",
+            stored_filename="very-long-approved-file-name.pdf",
+            original_filename="approval.pdf",
+            mime_type="application/pdf",
+            file_size=9,
+            checksum_sha256="2" * 64,
+        )
+        Review.objects.create(
+            document=self.document,
+            version=self.version,
+            reviewer=self.admin,
+            decision=Review.Decision.APPROVED,
+            comment="Approved sebelum file dihapus.",
+        )
+        self.document.status = Document.Status.APPROVED
+        self.document.save(update_fields=["status", "updated_at"])
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("attachment_delete", args=[attachment.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        self.document.refresh_from_db()
+        self.version.refresh_from_db()
+        self.assertEqual(self.document.status, Document.Status.NOT_STARTED)
+        self.assertFalse(self.version.has_file)
+        self.assertTrue(self.version.storage_key.startswith("__deleted__/"))
+        self.assertTrue(self.version.reviews.exists())
+        self.assertFalse(self.version.attachments.exists())
+        delete_mock.assert_called_once_with("DWDM/approved-file.pdf")
+
+        page = self.client.get(reverse("document_detail", args=[self.document.pk]))
+        self.assertContains(page, "File revisi sudah dihapus")
+
+    @patch("dms.views.delete_document_file")
+    def test_triplee_admin_cannot_force_delete_locked_file(self, delete_mock):
+        attachment = DocumentAttachment.objects.create(
+            version=self.version,
+            sequence_no=1,
+            storage_key="DWDM/admin-cannot-delete.pdf",
+            stored_filename="admin-cannot-delete.pdf",
+            original_filename="test.pdf",
+            mime_type="application/pdf",
+            file_size=5,
+            checksum_sha256="3" * 64,
+        )
+        self.admin.role = User.Role.TRIPLEE_ADMIN
+        self.admin.is_superuser = False
+        self.admin.save(update_fields=["role", "is_superuser"])
+        self.client.force_login(self.admin)
 
         response = self.client.post(
             reverse("attachment_delete", args=[attachment.pk])

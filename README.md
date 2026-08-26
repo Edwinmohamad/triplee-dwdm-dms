@@ -8,7 +8,7 @@ Dashboard dan Document Management System untuk monitoring QC, ATP, dan FATP proy
 - Register QC, ATP, dan FATP untuk setiap installation batch.
 - Data PO, harga, expected value, SOW, dan equipment tidak disimpan.
 - Upload file ke storage lokal server CasaOS.
-- Preview dan download melalui DMS tanpa public file link.
+- Preview PDF, gambar, dan dokumen Office langsung di browser tanpa public file link; download tetap terpisah.
 - Revision history Rev 0, Rev 1, dan seterusnya; satu revisi QC dapat memuat beberapa file.
 - Nokia dapat view, preview/download, dan memberi komentar tanpa akses keputusan status.
 - Keputusan Approve, Request Revision, atau Reject hanya dapat dicatat oleh Super Admin.
@@ -17,7 +17,8 @@ Dashboard dan Document Management System untuk monitoring QC, ATP, dan FATP proy
 - Dark mode global yang tersimpan otomatis untuk setiap browser.
 - Dashboard analitik dengan progress ring dan distribusi status dokumen.
 - Export report progres `.xlsx` per site dan installation batch.
-- Penghapusan file individual hanya pada revisi terbuka; revisi yang sudah disubmit tetap terkunci.
+- Super Admin dapat menghapus file pada semua status dengan audit trail dan penyesuaian status otomatis.
+- Nama file ringkas: `FATP_Koba_SUM-BB-KBA-0057.docx`; nama asli tetap tercatat di metadata.
 - Backup PostgreSQL terenkripsi pada storage server.
 - Docker Compose untuk CasaOS pada `192.168.100.110:8095`.
 - Login menggunakan username tanpa kewajiban email.

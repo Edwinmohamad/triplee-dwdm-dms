@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.2
+
+- Menampilkan DOC/DOCX, XLS/XLSX, ODT/ODS, dan PPT/PPTX sebagai PDF langsung di tab browser.
+- Menjaga tombol Download sebagai satu-satunya aksi yang mengunduh file asli.
+- Menampilkan halaman informasi tanpa memaksa download untuk format yang tidak didukung.
+- Menambahkan LibreOffice headless dan font dasar ke container web untuk konversi preview.
+
+## 1.4.1
+
+- Menyederhanakan nama file menjadi `TYPE_Nama-Site_SITE-ID.ext`, misalnya `FATP_Koba_SUM-BB-KBA-0057.docx`.
+- Menambahkan akhiran `_02`, `_03`, dan seterusnya hanya untuk attachment QC tambahan.
+- Menerapkan nama pendek pada file lama saat ditampilkan, diunduh, atau dimasukkan ke ZIP tanpa memindahkan file fisik.
+- Memberikan Super Admin akses hapus pada semua status, termasuk Under Review dan Approved.
+- Menyimpan tombstone dan riwayat review saat file terakhir dari revisi terkunci dihapus.
+- Menyesuaikan status dokumen otomatis setelah file terakhir dihapus.
+- Menghapus perilaku sticky panel upload agar tidak menutupi Reopen dan panel di bawahnya saat scroll.
+
 ## 1.4.0
 
 - Menghilangkan kotak putih logo dan membersihkan background putih dari tepi gambar logo di browser.

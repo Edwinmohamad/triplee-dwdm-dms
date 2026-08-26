@@ -550,7 +550,7 @@ def build_progress_report():
         row = 5 + index
         latest = _latest_version(document)
         file_count = len(latest.attachments.all()) if latest else 0
-        if latest and file_count == 0 and latest.storage_key:
+        if latest and file_count == 0 and latest.has_file:
             file_count = 1
         values = [
             index,

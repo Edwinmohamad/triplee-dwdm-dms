@@ -1,0 +1,14 @@
+{% extends 'base.html' %}
+{% block page_title %}Preview dokumen{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="{% url 'document_detail' document_id %}">Dokumen</a><span>/</span><b>Preview</b></nav>
+<section class="panel empty-state">
+    <span class="doc-token">FILE</span>
+    <h2>Preview belum tersedia</h2>
+    <p>{{ reason }}</p>
+    <div class="version-actions">
+        <a class="button ghost" href="{% url 'document_detail' document_id %}">Kembali</a>
+        <a class="button secondary" href="{{ download_url }}">Download file asli</a>
+    </div>
+</section>
+{% endblock %}

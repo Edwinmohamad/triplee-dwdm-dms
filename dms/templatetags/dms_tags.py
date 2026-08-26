@@ -1,5 +1,7 @@
 from django import template
 
+from ..services.local_storage import download_filename
+
 register = template.Library()
 
 
@@ -32,3 +34,11 @@ def file_size(value):
         if size < 1024 or unit == "GB":
             return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
         size /= 1024
+
+
+@register.filter
+def simple_filename(entity):
+    try:
+        return download_filename(entity)
+    except (AttributeError, TypeError, ValueError):
+        return getattr(entity, "stored_filename", "document")

@@ -25,19 +25,21 @@
                     {% for attachment in version.attachments.all %}
                         <div class="attachment-row">
                             <span class="attachment-number">{{ attachment.sequence_no|stringformat:'02d' }}</span>
-                            <div><strong>{{ attachment.stored_filename }}</strong><small>File asli: {{ attachment.original_filename }} · {{ attachment.file_size|file_size }}{% if attachment.description %} · {{ attachment.description }}{% endif %}</small></div>
+                            <div><strong>{{ attachment|simple_filename }}</strong><small>File asli: {{ attachment.original_filename }} · {{ attachment.file_size|file_size }}{% if attachment.description %} · {{ attachment.description }}{% endif %}</small></div>
                             <div class="version-actions">
                                 <a class="button ghost small" href="{% url 'attachment_preview' attachment.pk %}" target="_blank">Preview</a>
                                 <a class="button secondary small" href="{% url 'attachment_download' attachment.pk %}">Download</a>
-                                {% if can_delete_files and not version.is_locked and latest_version_id == version.pk %}
-                                    {% if document.status == 'UPLOADED' or document.status == 'DRAFT' %}
-                                    <form method="post" action="{% url 'attachment_delete' attachment.pk %}" data-confirm="Hapus file {{ attachment.stored_filename|escapejs }}? Tindakan ini tidak dapat dibatalkan.">{% csrf_token %}<button class="button danger small" type="submit">Hapus</button></form>
-                                    {% endif %}
+                                {% if can_delete_files %}
+                                <form method="post" action="{% url 'attachment_delete' attachment.pk %}" data-confirm="Hapus file {{ attachment|simple_filename|escapejs }}? Jika ini file terakhir, status dokumen akan disesuaikan otomatis. Tindakan ini tidak dapat dibatalkan.">{% csrf_token %}<button class="button danger small" type="submit">Hapus</button></form>
                                 {% endif %}
                             </div>
                         </div>
                     {% empty %}
-                        <div class="attachment-row"><span class="attachment-number">01</span><div><strong>{{ version.stored_filename }}</strong><small>File asli: {{ version.original_filename }} · {{ version.file_size|file_size }}</small></div><div class="version-actions"><a class="button ghost small" href="{% url 'document_preview' version.pk %}" target="_blank">Preview</a><a class="button secondary small" href="{% url 'document_download' version.pk %}">Download</a></div></div>
+                        {% if version.has_file %}
+                        <div class="attachment-row"><span class="attachment-number">01</span><div><strong>{{ version|simple_filename }}</strong><small>File asli: {{ version.original_filename }} · {{ version.file_size|file_size }}</small></div><div class="version-actions"><a class="button ghost small" href="{% url 'document_preview' version.pk %}" target="_blank">Preview</a><a class="button secondary small" href="{% url 'document_download' version.pk %}">Download</a></div></div>
+                        {% else %}
+                        <div class="attachment-row deleted-file-row"><span class="attachment-number">×</span><div><strong>File revisi sudah dihapus</strong><small>Riwayat revisi dan review tetap disimpan sebagai audit trail.</small></div></div>
+                        {% endif %}
                     {% endfor %}
                     </div>
                 </article>

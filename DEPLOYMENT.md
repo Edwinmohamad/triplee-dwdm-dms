@@ -8,6 +8,23 @@ Target production:
 - Local URL: `http://192.168.100.110:8095`
 - Domain: `https://tripleedms.edwinpxmx.my.id`
 
+## Update cepat v1.4.2
+
+v1.4.2 menambahkan preview dokumen Office sebagai PDF di browser. Proses build pertama
+akan lebih lama karena image web memasang LibreOffice. v1.4.1 menyederhanakan nama file,
+membuka penghapusan semua status khusus Super Admin, dan memperbaiki panel upload saat scroll.
+Tidak ada migration database baru. File lama tidak dipindahkan; nama pendek langsung dipakai
+pada tampilan dan hasil download. Contoh: `FATP_Koba_SUM-BB-KBA-0057.docx`.
+
+```bash
+cd /DATA/AppData/TRIPLE-E_DMS/triplee-dwdm-dms
+docker compose up -d --build
+docker compose exec web python manage.py check
+docker compose exec web python manage.py test
+curl -fsS https://tripleedms.edwinpxmx.my.id/health/
+echo
+```
+
 ## Fresh installation
 
 Masuk ke folder source dan buat `.env`:
@@ -103,7 +120,7 @@ data/documents/
         └── BATCH-01_BATCH-LABEL/
             └── QC/
                 └── REV-000/
-                    └── TOWER-ID_BATCH-01_QC_REV-000_YYYYMMDD.pdf
+                    └── QC_Koba_SITE-ID.pdf
 ```
 
 Pengguna Nokia mengunduh file melalui DMS; folder host tidak perlu dibagikan langsung.

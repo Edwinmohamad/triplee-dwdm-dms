@@ -329,7 +329,7 @@ h1, h2, h3, p { margin-top: 0; }
 .document-main { display: flex; flex-direction: column; gap: 18px; }
 .document-main > .panel, .document-actions-column > .panel { padding: 22px; }
 .document-actions-column { display: flex; flex-direction: column; gap: 18px; }
-.sticky-panel { position: sticky; top: 105px; }
+.sticky-panel { position: static; }
 .version-list { display: flex; flex-direction: column; }
 .version-package { padding: 17px 0; border-top: 1px solid #e8edf1; }
 .version-package:first-child { padding-top: 0; border-top: 0; }
@@ -337,6 +337,8 @@ h1, h2, h3, p { margin-top: 0; }
 .attachment-list { margin: 13px 0 0 56px; overflow: hidden; background: #f8fafb; border: 1px solid #e4eaf0; border-radius: 11px; }
 .attachment-row { display: grid; grid-template-columns: 30px minmax(0,1fr) auto; align-items: center; gap: 11px; min-height: 57px; padding: 9px 12px; border-top: 1px solid #e4eaf0; }
 .attachment-row:first-child { border-top: 0; }
+.deleted-file-row { color: var(--muted); background: var(--red-soft); }
+.deleted-file-row .attachment-number { color: var(--red); background: rgba(189,57,68,.12); }
 .attachment-number { display: grid; place-items: center; width: 27px; height: 27px; color: #087889; background: var(--cyan-soft); border-radius: 7px; font: 700 .62rem 'JetBrains Mono', monospace; }
 .attachment-row strong { display: block; overflow: hidden; font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }
 .attachment-row small { display: block; margin-top: 3px; color: var(--muted); font-size: .64rem; }
