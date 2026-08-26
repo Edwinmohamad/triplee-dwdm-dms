@@ -1,0 +1,59 @@
+{% extends 'base.html' %}
+{% load dms_tags %}
+{% block page_title %}Dashboard Overview{% endblock %}
+{% block content %}
+<section class="dashboard-lead">
+    <div>
+        <p class="eyebrow">DOCUMENT READINESS</p>
+        <h1>{{ metrics.progress }}%</h1>
+        <p>dokumen wajib sudah approved</p>
+    </div>
+    <div class="lead-progress"><span style="width: {{ metrics.progress }}%"></span></div>
+    <div class="lead-meta"><strong>{{ metrics.approved }}/{{ metrics.documents }}</strong><span>Approved documents</span></div>
+</section>
+
+<section class="metric-grid">
+    <article class="metric-card"><span class="metric-icon cyan">S</span><div><strong>{{ metrics.sites }}</strong><p>Site fisik</p></div><small>DWDM project</small></article>
+    <article class="metric-card"><span class="metric-icon blue">B</span><div><strong>{{ metrics.batches }}</strong><p>Installation batch</p></div><small>Tracking aktif</small></article>
+    <article class="metric-card"><span class="metric-icon green">✓</span><div><strong>{{ metrics.sites_completed }}</strong><p>Site selesai</p></div><small>Semua dokumen approved</small></article>
+    <article class="metric-card"><span class="metric-icon amber">P</span><div><strong>{{ metrics.sites_pending }}</strong><p>Site pending</p></div><small>Belum lengkap</small></article>
+    <article class="metric-card"><span class="metric-icon red">!</span><div><strong>{{ metrics.sites_revision }}</strong><p>Site dengan revisi</p></div><small>Perlu tindakan Triple E</small></article>
+    <article class="metric-card"><span class="metric-icon blue">R</span><div><strong>{{ metrics.under_review }}</strong><p>Dokumen review</p></div><small>Menunggu Nokia</small></article>
+</section>
+
+<section class="split-grid">
+    <div class="panel">
+        <div class="section-heading"><div><p class="eyebrow">BY DOCUMENT TYPE</p><h3>Progress QC, ATP & FATP</h3></div><a href="{% url 'site_list' %}">Lihat semua →</a></div>
+        <div class="document-summary-list">
+            {% for item in type_summary %}
+            <div class="document-summary-row">
+                <span class="doc-token">{{ item.type }}</span>
+                <div><strong>{{ item.approved }}/{{ item.total }} approved</strong><div class="progress-track"><span style="width: {{ item.progress }}%"></span></div></div>
+                <div class="summary-numbers"><b>{{ item.progress }}%</b><small>{{ item.under_review }} review · {{ item.revision }} revisi</small></div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    <div class="panel">
+        <div class="section-heading"><div><p class="eyebrow">NEEDS ATTENTION</p><h3>Prioritas tindak lanjut</h3></div></div>
+        <div class="attention-list">
+            {% for document in attention %}
+            <a href="{% url 'document_detail' document.pk %}">
+                <span class="status-dot {{ document.status|status_class }}"></span>
+                <div><strong>{{ document.batch.site.name }} · {{ document.document_type }}</strong><small>{{ document.batch.label }} · {{ document.get_status_display }}</small></div>
+                <span>→</span>
+            </a>
+            {% empty %}<div class="empty-state"><strong>Tidak ada isu aktif</strong><p>Semua dokumen berjalan sesuai alur.</p></div>{% endfor %}
+        </div>
+    </div>
+</section>
+
+<section class="panel">
+    <div class="section-heading"><div><p class="eyebrow">AUDIT TRAIL</p><h3>Aktivitas terbaru</h3></div>{% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'TRIPLEE_ADMIN' %}<a href="{% url 'audit_log' %}">Buka audit log →</a>{% endif %}</div>
+    <div class="activity-stream">
+        {% for activity in recent_activity %}
+        <div><span class="activity-mark"></span><p><strong>{{ activity.actor|default:'System' }}</strong> {{ activity.description }}<small>{{ activity.created_at|date:'d M Y, H:i' }} WIB</small></p></div>
+        {% empty %}<div class="empty-state"><strong>Belum ada aktivitas</strong><p>Aktivitas pengguna akan muncul di sini.</p></div>{% endfor %}
+    </div>
+</section>
+{% endblock %}

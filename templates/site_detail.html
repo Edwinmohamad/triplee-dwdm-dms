@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% load dms_tags %}
+{% block page_title %}{{ site.name }}{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="{% url 'site_list' %}">Site</a><span>/</span><b>{{ site.name }}</b></nav>
+<section class="site-hero panel">
+    <div><span class="region-tag">{{ site.region }}</span><h1>{{ site.name }}</h1><p>{{ site.tower_id }} · {{ site.project.name }}</p></div>
+    <div class="site-hero-stat"><strong>{{ batches|length }}</strong><span>Installation batch</span></div>
+</section>
+<div class="batch-grid">
+{% for batch in batches %}
+    <a class="batch-card" href="{% url 'batch_detail' batch.pk %}">
+        <div class="batch-card-heading"><span class="batch-number">{{ batch.batch_no|stringformat:'02d' }}</span><b class="badge {{ batch.status|status_class }}">{{ batch.get_status_display }}</b></div>
+        <h3>{{ batch.label }}</h3><p>PIC: {{ batch.pic_name|default:'Belum ditentukan' }}</p>
+        <div class="mini-docs">
+            {% for document in batch.documents.all %}<span class="{{ document.status|status_class }}"><b>{{ document.document_type }}</b>{{ document.get_status_display }}</span>{% endfor %}
+        </div>
+        <span class="card-link">Buka batch →</span>
+    </a>
+{% endfor %}
+</div>
+{% endblock %}
+

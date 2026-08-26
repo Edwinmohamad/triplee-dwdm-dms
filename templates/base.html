@@ -1,0 +1,63 @@
+{% load static %}
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>{% block title %}Triple E DWDM Document Control{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'dms/app.css' %}">
+</head>
+<body>
+<div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <span class="brand-mark small">3E</span>
+            <span><strong>Triple E</strong><small>Document Control</small></span>
+        </div>
+        <nav class="nav-list" aria-label="Navigasi utama">
+            <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><span>▦</span> Dashboard</a>
+            <a href="{% url 'site_list' %}" class="{% if request.resolver_match.url_name == 'site_list' or request.resolver_match.url_name == 'site_detail' or request.resolver_match.url_name == 'batch_detail' or request.resolver_match.url_name == 'document_detail' %}active{% endif %}"><span>⌂</span> Site & Batch</a>
+            <a href="{% url 'notifications' %}" class="{% if request.resolver_match.url_name == 'notifications' %}active{% endif %}"><span>◉</span> Notifikasi {% if unread_notifications %}<b class="nav-count">{{ unread_notifications }}</b>{% endif %}</a>
+            {% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'TRIPLEE_ADMIN' %}
+                <p class="nav-label">Administrasi</p>
+                <a href="{% url 'user_management' %}" class="{% if request.resolver_match.url_name == 'user_management' %}active{% endif %}"><span>♙</span> Pengguna</a>
+                <a href="{% url 'audit_log' %}" class="{% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}"><span>≡</span> Audit Log</a>
+            {% endif %}
+            {% if request.user.role == 'SUPER_ADMIN' %}
+                <a href="{% url 'integrations' %}" class="{% if request.resolver_match.url_name == 'integrations' %}active{% endif %}"><span>↗</span> Google Drive <i class="connection-dot {% if drive_connected %}online{% endif %}"></i></a>
+                <a href="{% url 'backup_status' %}" class="{% if request.resolver_match.url_name == 'backup_status' %}active{% endif %}"><span>↻</span> Backup</a>
+            {% endif %}
+        </nav>
+        <div class="sidebar-user">
+            <div class="avatar">{{ request.user.full_name|slice:':1'|upper }}</div>
+            <div><strong>{{ request.user.full_name }}</strong><small>{{ request.user.get_role_display }}</small></div>
+            <form method="post" action="{% url 'logout' %}" class="logout-form">{% csrf_token %}<button type="submit" title="Logout" aria-label="Logout">↪</button></form>
+        </div>
+    </aside>
+
+    <main class="main-area">
+        <header class="topbar">
+            <button class="menu-button" type="button" data-menu-toggle aria-label="Buka navigasi">☰</button>
+            <div>
+                <p class="eyebrow">NOKIA DWDM PROJECT</p>
+                <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+            </div>
+            <div class="topbar-actions">
+                <span class="system-status"><i></i> System online</span>
+                <a class="notification-button" href="{% url 'notifications' %}" aria-label="Notifikasi">●{% if unread_notifications %}<b>{{ unread_notifications }}</b>{% endif %}</a>
+            </div>
+        </header>
+        <div class="content-area">
+            {% if messages %}
+                <div class="message-stack">
+                    {% for message in messages %}<div class="alert {{ message.tags }}">{{ message }}</div>{% endfor %}
+                </div>
+            {% endif %}
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+<script src="{% static 'dms/app.js' %}"></script>
+</body>
+</html>

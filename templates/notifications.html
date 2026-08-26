@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block page_title %}Notifikasi{% endblock %}
+{% block content %}
+<div class="section-heading page-heading"><div><p class="eyebrow">IN-APP NOTIFICATIONS</p><h3>Update dokumen dan review</h3></div><form method="post" action="{% url 'notifications_read_all' %}">{% csrf_token %}<button class="button secondary" type="submit">Tandai semua dibaca</button></form></div>
+<div class="panel notification-list">
+{% for item in notifications %}
+    <form method="post" action="{% url 'notification_read' item.pk %}" class="notification-row {% if not item.is_read %}unread{% endif %}">{% csrf_token %}<button type="submit"><span class="notification-mark"></span><div><strong>{{ item.title }}</strong><p>{{ item.message }}</p><small>{{ item.created_at|date:'d M Y, H:i' }} WIB</small></div><span>→</span></button></form>
+{% empty %}<div class="empty-state"><strong>Belum ada notifikasi</strong><p>Update review dan revisi akan muncul di sini.</p></div>{% endfor %}
+</div>
+{% endblock %}
+

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load dms_tags %}
+{% block page_title %}Site & Installation Batch{% endblock %}
+{% block content %}
+<div class="section-heading page-heading"><div><p class="eyebrow">16 PHYSICAL SITES · 18 BATCHES</p><h3>Document register per site</h3><p>Pilih site untuk melihat batch instalasi dan status QC, ATP, FATP.</p></div></div>
+<div class="site-grid">
+{% for site in sites %}
+    <a class="site-card" href="{% url 'site_detail' site.pk %}">
+        <div class="site-card-top"><span class="sequence">{{ site.sequence_no|stringformat:'02d' }}</span><span class="region-tag">{{ site.region }}</span></div>
+        <h3>{{ site.name }}</h3><p>{{ site.tower_id }}</p>
+        <div class="site-progress"><div><span>Document progress</span><strong>{{ site.document_progress }}%</strong></div><div class="progress-track"><span style="width: {{ site.document_progress }}%"></span></div><small>{{ site.document_approved }}/{{ site.document_total }} approved</small></div>
+        <div class="site-batches">
+            {% for batch in site.batches.all %}
+            <div><span>{{ batch.label }}</span><b class="badge {{ batch.status|status_class }}">{{ batch.get_status_display }}</b></div>
+            {% endfor %}
+        </div>
+        <span class="card-link">Buka site →</span>
+    </a>
+{% endfor %}
+</div>
+{% endblock %}

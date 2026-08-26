@@ -1,0 +1,74 @@
+name: triplee-dwdm-dms
+
+services:
+  db:
+    image: postgres:17-alpine
+    container_name: triplee-dms-db
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - ${APP_DATA_DIR}/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    mem_limit: 2g
+    cpus: 1.5
+    networks:
+      - dms-internal
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: triplee-dms-web
+    restart: unless-stopped
+    env_file: .env
+    ports:
+      - "192.168.100.110:8095:8000"
+    volumes:
+      - ${APP_DATA_DIR}/backups:/app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health/', timeout=5)"]
+      interval: 30s
+      timeout: 7s
+      retries: 5
+      start_period: 35s
+    mem_limit: 1536m
+    cpus: 1.5
+    networks:
+      - dms-internal
+
+  backup:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: triplee-dms-backup
+    restart: unless-stopped
+    user: "0:0"
+    entrypoint: ["python", "manage.py", "backup_scheduler"]
+    env_file: .env
+    volumes:
+      - ${APP_DATA_DIR}/backups:/app/backups
+    depends_on:
+      db:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+    mem_limit: 512m
+    cpus: 0.5
+    networks:
+      - dms-internal
+
+networks:
+  dms-internal:
+    name: triplee-dms-internal
+

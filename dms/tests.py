@@ -1,0 +1,164 @@
+from unittest.mock import patch
+
+from django.core.management import call_command
+from django.test import TestCase
+from django.urls import reverse
+
+from .models import Document, DocumentVersion, InstallationBatch, Review, Site, User
+
+
+class InitialDataTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_initial_data")
+
+    def test_seed_counts(self):
+        self.assertEqual(Site.objects.count(), 16)
+        self.assertEqual(InstallationBatch.objects.count(), 18)
+        self.assertEqual(Document.objects.count(), 54)
+
+    def test_duplicate_towers_are_batches_not_sites(self):
+        mentigi = Site.objects.get(tower_id="SUM-BB-TDN-0361")
+        sungai_liat = Site.objects.get(tower_id="SUM-BB-SGL-0238")
+        self.assertEqual(mentigi.batches.count(), 2)
+        self.assertEqual(sungai_liat.batches.count(), 2)
+
+    def test_tanjung_pandan_is_pending(self):
+        site = Site.objects.get(tower_id="SUM-BB-TDN-0530")
+        self.assertEqual(site.batches.get().status, InstallationBatch.Status.PENDING_INSTALLATION)
+
+    def test_seed_is_idempotent_and_preserves_workflow_changes(self):
+        batch = InstallationBatch.objects.get(site__tower_id="SUM-BB-TDN-0530")
+        document = batch.documents.get(document_type=Document.Type.QC)
+        batch.status = InstallationBatch.Status.INSTALLED
+        batch.pic_name = "PIC BARU"
+        batch.save(update_fields=["status", "pic_name", "updated_at"])
+        document.status = Document.Status.DRAFT
+        document.save(update_fields=["status", "updated_at"])
+
+        call_command("seed_initial_data")
+
+        batch.refresh_from_db()
+        document.refresh_from_db()
+        self.assertEqual(batch.status, InstallationBatch.Status.INSTALLED)
+        self.assertEqual(batch.pic_name, "PIC BARU")
+        self.assertEqual(document.status, Document.Status.DRAFT)
+
+
+class AccountProvisioningTests(TestCase):
+    def test_provisions_username_only_accounts(self):
+        call_command(
+            "provision_accounts",
+            superadmin_password="TemporaryAdminTestPass1!",
+            user_password="temporary-test-user-pass",
+            allow_weak_password=True,
+        )
+        superadmin = User.objects.get(username="superadmin")
+        reviewer = User.objects.get(username="user")
+        self.assertTrue(superadmin.is_superuser)
+        self.assertEqual(superadmin.role, User.Role.SUPER_ADMIN)
+        self.assertTrue(superadmin.check_password("TemporaryAdminTestPass1!"))
+        self.assertEqual(reviewer.role, User.Role.NOKIA_REVIEWER)
+        self.assertTrue(reviewer.check_password("temporary-test-user-pass"))
+
+
+class WorkflowTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_initial_data")
+        cls.admin = User.objects.create_superuser(
+            username="admin",
+            full_name="Admin Triple E",
+            password="VerySecure123!",
+            must_change_password=False,
+        )
+        cls.reviewer = User.objects.create_user(
+            username="reviewer",
+            full_name="Nokia Reviewer",
+            password="VerySecure123!",
+            role=User.Role.NOKIA_REVIEWER,
+            must_change_password=False,
+        )
+        cls.document = Document.objects.filter(status=Document.Status.UNDER_REVIEW).first()
+        cls.version = DocumentVersion.objects.create(
+            document=cls.document,
+            revision_no=0,
+            drive_file_id="drive-file-001",
+            stored_filename="test.pdf",
+            original_filename="test.pdf",
+            mime_type="application/pdf",
+            file_size=100,
+            checksum_sha256="a" * 64,
+            uploaded_by=cls.admin,
+            is_locked=True,
+        )
+
+    def test_dashboard_requires_login(self):
+        response = self.client.get(reverse("dashboard"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_login_uses_username_without_email(self):
+        response = self.client.post(
+            reverse("login"),
+            {"username": "admin", "password": "VerySecure123!"},
+        )
+        self.assertRedirects(response, reverse("dashboard"))
+
+    def test_dashboard_shows_seeded_counts(self):
+        self.client.force_login(self.admin)
+        response = self.client.get(reverse("dashboard"))
+        self.assertContains(response, "16")
+        self.assertContains(response, "18")
+
+    def test_nokia_reviewer_can_approve(self):
+        self.client.force_login(self.reviewer)
+        response = self.client.post(
+            reverse("document_review", args=[self.document.pk]),
+            {"decision": Review.Decision.APPROVED, "comment": "Dokumen sesuai."},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.document.refresh_from_db()
+        self.assertEqual(self.document.status, Document.Status.APPROVED)
+        self.assertTrue(self.document.reviews.filter(decision=Review.Decision.APPROVED).exists())
+
+    def test_reviewer_cannot_upload(self):
+        self.client.force_login(self.reviewer)
+        response = self.client.post(reverse("document_upload", args=[self.document.pk]))
+        self.assertEqual(response.status_code, 403)
+
+    def test_triplee_admin_cannot_make_nokia_decision(self):
+        self.client.force_login(self.admin)
+        self.admin.role = User.Role.TRIPLEE_ADMIN
+        self.admin.is_superuser = False
+        self.admin.save(update_fields=["role", "is_superuser"])
+        response = self.client.post(
+            reverse("document_review", args=[self.document.pk]),
+            {"decision": Review.Decision.APPROVED, "comment": "Dokumen sesuai."},
+        )
+        self.assertEqual(response.status_code, 403)
+
+    @patch("dms.views.upload_document_file")
+    def test_upload_is_blocked_while_under_review(self, upload_mock):
+        self.client.force_login(self.admin)
+        response = self.client.post(reverse("document_upload", args=[self.document.pk]))
+        self.assertEqual(response.status_code, 302)
+        upload_mock.assert_not_called()
+
+    def test_revision_required_must_upload_a_new_version_before_submit(self):
+        self.document.status = Document.Status.REVISION_REQUIRED
+        self.document.save(update_fields=["status", "updated_at"])
+        self.client.force_login(self.admin)
+        response = self.client.post(reverse("document_submit", args=[self.document.pk]))
+        self.assertEqual(response.status_code, 302)
+        self.document.refresh_from_db()
+        self.assertEqual(self.document.status, Document.Status.REVISION_REQUIRED)
+
+    @patch("dms.views.download_drive_file")
+    def test_download_is_available_to_nokia(self, download_mock):
+        import io
+
+        download_mock.return_value = io.BytesIO(b"test")
+        self.client.force_login(self.reviewer)
+        response = self.client.get(reverse("document_download", args=[self.version.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Disposition"], 'attachment; filename="test.pdf"')

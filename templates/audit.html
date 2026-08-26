@@ -1,0 +1,7 @@
+{% extends 'base.html' %}
+{% block page_title %}Audit Log{% endblock %}
+{% block content %}
+<div class="section-heading page-heading"><div><p class="eyebrow">IMMUTABLE ACTIVITY TRAIL</p><h3>300 aktivitas terbaru</h3><p>Upload, preview, download, review, login, dan perubahan sistem.</p></div></div>
+<div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Waktu</th><th>Pengguna</th><th>Aktivitas</th><th>Deskripsi</th><th>IP</th></tr></thead><tbody>{% for log in logs %}<tr><td>{{ log.created_at|date:'d M Y' }}<small>{{ log.created_at|date:'H:i:s' }}</small></td><td>{{ log.actor|default:'System' }}</td><td><span class="code-tag">{{ log.action }}</span></td><td>{{ log.description }}</td><td>{{ log.ip_address|default:'—' }}</td></tr>{% empty %}<tr><td colspan="5">Belum ada aktivitas.</td></tr>{% endfor %}</tbody></table></div></div>
+{% endblock %}
+

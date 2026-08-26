@@ -1,0 +1,10 @@
+{% extends 'base.html' %}
+{% block page_title %}Edit Installation Batch{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="{% url 'batch_detail' batch.pk %}">{{ batch.site.name }} · {{ batch.label }}</a><span>/</span><b>Edit</b></nav>
+<div class="panel narrow-panel">
+    <div class="section-heading"><div><p class="eyebrow">BATCH SETTINGS</p><h3>Perbarui installation batch</h3></div></div>
+    <form method="post" class="stack-form">{% csrf_token %}{{ form.as_p }}<div class="form-actions"><a class="button ghost" href="{% url 'batch_detail' batch.pk %}">Batal</a><button class="button primary" type="submit">Simpan perubahan</button></div></form>
+</div>
+{% endblock %}
+

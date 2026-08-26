@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+{% block page_title %}User & Role Management{% endblock %}
+{% block content %}
+<div class="admin-split">
+    <section class="panel">
+        <div class="section-heading"><div><p class="eyebrow">ACTIVE USERS</p><h3>Akun Triple E & Nokia</h3></div><span>{{ users|length }} pengguna</span></div>
+        <div class="user-list">{% for user in users %}<article class="user-row"><div class="avatar">{{ user.full_name|slice:':1'|upper }}</div><div><strong>{{ user.full_name }}</strong><p>@{{ user.username }}</p></div><span class="badge {% if user.is_active %}success{% else %}neutral{% endif %}">{{ user.get_role_display }}</span>{% if request.user.role == 'SUPER_ADMIN' or user.role != 'SUPER_ADMIN' %}<details><summary class="button ghost small">Edit</summary><form method="post" action="{% url 'user_update' user.pk %}" class="inline-user-form">{% csrf_token %}<label>Nama<input name="full_name" value="{{ user.full_name }}" required></label><label>Role<select name="role">{% for value, label in role_choices %}<option value="{{ value }}" {% if user.role == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><label class="checkbox-row"><input type="checkbox" name="is_active" {% if user.is_active %}checked{% endif %}> Aktif</label><button class="button primary small" type="submit">Simpan</button></form></details>{% endif %}</article>{% endfor %}</div>
+    </section>
+    <section class="panel sticky-panel"><p class="eyebrow">CREATE USER</p><h3>Tambah akun</h3><p class="muted">Pengguna wajib mengganti password sementara saat login pertama.</p><form method="post" class="stack-form">{% csrf_token %}{{ form.as_p }}<button class="button primary full" type="submit">Buat pengguna</button></form></section>
+</div>
+{% endblock %}

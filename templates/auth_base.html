@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex,nofollow">
+    <title>{% block title %}Triple E DWDM Document Control{% endblock %}</title>
+    {% load static %}
+    <link rel="stylesheet" href="{% static 'dms/app.css' %}">
+</head>
+<body class="auth-body">
+    <main class="auth-shell">
+        <section class="auth-brand">
+            <div class="brand-mark">3E</div>
+            <p class="eyebrow">PT TRIPLE E × NOKIA</p>
+            <h1>DWDM Document<br>Control Center</h1>
+            <p class="auth-copy">Satu tempat untuk memantau QC, ATP, FATP, revisi, dan persetujuan setiap installation batch.</p>
+            <div class="auth-signal" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+        </section>
+        <section class="auth-panel">
+            {% if messages %}
+                {% for message in messages %}<div class="alert {{ message.tags }}">{{ message }}</div>{% endfor %}
+            {% endif %}
+            {% block content %}{% endblock %}
+        </section>
+    </main>
+</body>
+</html>
+

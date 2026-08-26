@@ -1,0 +1,17 @@
+{% extends 'auth_base.html' %}
+{% block title %}Login · Triple E DMS{% endblock %}
+{% block content %}
+<div class="auth-form-header">
+    <p class="eyebrow">SECURE ACCESS</p>
+    <h2>Masuk ke dashboard</h2>
+    <p>Gunakan akun Triple E atau Nokia yang sudah terdaftar.</p>
+</div>
+<form method="post" class="stack-form">
+    {% csrf_token %}
+    {% if form.non_field_errors %}<div class="form-error">{{ form.non_field_errors }}</div>{% endif %}
+    <label>Username{{ form.username }}</label>
+    <label>Password{{ form.password }}</label>
+    <button class="button primary full" type="submit">Masuk ke dashboard</button>
+</form>
+<p class="auth-footnote">Akses dan aktivitas pengguna dicatat untuk kebutuhan audit.</p>
+{% endblock %}

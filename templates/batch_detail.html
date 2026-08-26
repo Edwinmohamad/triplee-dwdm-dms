@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load dms_tags %}
+{% block page_title %}{{ batch.site.name }} · {{ batch.label }}{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="{% url 'site_list' %}">Site</a><span>/</span><a href="{% url 'site_detail' batch.site.pk %}">{{ batch.site.name }}</a><span>/</span><b>{{ batch.label }}</b></nav>
+<section class="batch-hero panel">
+    <div><p class="eyebrow">INSTALLATION BATCH {{ batch.batch_no|stringformat:'02d' }}</p><h1>{{ batch.site.name }}</h1><p>{{ batch.site.tower_id }} · PIC {{ batch.pic_name|default:'belum ditentukan' }}</p></div>
+    <div class="batch-hero-actions"><span class="badge large {{ batch.status|status_class }}">{{ batch.get_status_display }}</span>{% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'TRIPLEE_ADMIN' %}<a class="button secondary" href="{% url 'batch_update' batch.pk %}">Edit batch</a>{% endif %}</div>
+</section>
+<section class="document-card-grid">
+{% for document in documents %}
+    <a class="document-card" href="{% url 'document_detail' document.pk %}">
+        <div class="document-card-top"><span class="doc-token large">{{ document.document_type }}</span><b class="badge {{ document.status|status_class }}">{{ document.get_status_display }}</b></div>
+        <div class="radial-progress" style="--progress: {{ document.progress_value }}"><span>{{ document.progress_value }}%</span></div>
+        <div><h3>{{ document.get_document_type_display }} Document</h3><p>{% if document.latest_version %}Current Rev {{ document.latest_version.revision_no }} · {{ document.latest_version.uploaded_at|date:'d M Y' }}{% else %}Belum ada file diunggah{% endif %}</p></div>
+        <span class="card-link">Buka dokumen →</span>
+    </a>
+{% endfor %}
+</section>
+{% if batch.notes %}<div class="panel note-panel"><p class="eyebrow">BATCH NOTES</p><p>{{ batch.notes }}</p></div>{% endif %}
+{% endblock %}
+
