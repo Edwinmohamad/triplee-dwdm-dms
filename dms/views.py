@@ -61,6 +61,10 @@ UPLOADABLE_STATUSES = {
     Document.Status.REVISION_REQUIRED,
     Document.Status.REJECTED,
 }
+HISTORICAL_STATUSES_WITHOUT_FILE = {
+    Document.Status.UNDER_REVIEW,
+    Document.Status.APPROVED,
+}
 
 
 def _summarize_documents(documents):
@@ -288,8 +292,10 @@ def document_detail(request, pk):
         pk=pk,
     )
     latest_version = document.latest_version
-    legacy_approved_without_file = document.status == Document.Status.APPROVED and not latest_version
-    upload_allowed_by_state = document.status in UPLOADABLE_STATUSES or legacy_approved_without_file
+    historical_status_without_file = (
+        document.status in HISTORICAL_STATUSES_WITHOUT_FILE and not latest_version
+    )
+    upload_allowed_by_state = document.status in UPLOADABLE_STATUSES or historical_status_without_file
     return render(
         request,
         "document_detail.html",
@@ -315,6 +321,7 @@ def document_detail(request, pk):
                 }
             ),
             "can_reopen": request.user.role in ADMIN_ROLES and document.status == Document.Status.APPROVED,
+            "historical_status_without_file": historical_status_without_file,
         },
     )
 
@@ -327,11 +334,15 @@ def document_upload(request, pk):
     if document.batch.status == InstallationBatch.Status.PENDING_INSTALLATION:
         messages.error(request, "Dokumen belum dapat diunggah karena instalasi masih pending.")
         return redirect("document_detail", pk=pk)
-    legacy_approved_without_file = document.status == Document.Status.APPROVED and not document.latest_version
-    if document.status not in UPLOADABLE_STATUSES and not legacy_approved_without_file:
+    historical_status = (
+        document.status
+        if document.status in HISTORICAL_STATUSES_WITHOUT_FILE and not document.latest_version
+        else None
+    )
+    if document.status not in UPLOADABLE_STATUSES and not historical_status:
         messages.error(request, "Dokumen tidak dapat diunggah pada status saat ini.")
         return redirect("document_detail", pk=pk)
-    if document.status == Document.Status.APPROVED and not legacy_approved_without_file:
+    if document.status == Document.Status.APPROVED and not historical_status:
         messages.error(request, "Dokumen Approved terkunci. Admin harus membuka kembali terlebih dahulu.")
         return redirect("document_detail", pk=pk)
     if not form.is_valid():
@@ -364,15 +375,21 @@ def document_upload(request, pk):
                 uploaded_by=request.user,
                 **storage_result,
             )
-            if legacy_approved_without_file:
+            if historical_status:
                 version.is_locked = True
                 version.save(update_fields=["is_locked"])
-                document.status = Document.Status.APPROVED
-                document.approved_at = document.approved_at or timezone.now()
+                document.status = historical_status
+                if historical_status == Document.Status.APPROVED:
+                    document.approved_at = document.approved_at or timezone.now()
+                else:
+                    document.submitted_at = document.submitted_at or timezone.now()
+                    document.approved_at = None
             else:
                 document.status = Document.Status.UPLOADED
                 document.approved_at = None
-            document.save(update_fields=["status", "approved_at", "updated_at"])
+            document.save(
+                update_fields=["status", "submitted_at", "approved_at", "updated_at"]
+            )
     except Exception as exc:
         delete_document_file(storage_result["storage_key"])
         messages.error(request, f"Data versi dokumen gagal disimpan: {exc}")

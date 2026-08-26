@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.2.1
+
+- Memperbaiki tombol upload yang terkunci pada dokumen historis berstatus `UNDER_REVIEW` tanpa file.
+- Upload pertama pada dokumen historis mempertahankan status review/approved dan langsung mengunci versinya.
+
 ## 1.2.0
 
 - Mengganti Google Drive/OAuth dengan penyimpanan dokumen lokal di server CasaOS.

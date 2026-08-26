@@ -182,6 +182,39 @@ class WorkflowTests(TestCase):
         self.assertEqual(response.status_code, 302)
         upload_mock.assert_not_called()
 
+    @patch("dms.views.store_document_file")
+    def test_historical_under_review_without_file_accepts_first_upload(self, upload_mock):
+        historical = Document.objects.filter(
+            status=Document.Status.UNDER_REVIEW,
+            versions__isnull=True,
+        ).exclude(pk=self.document.pk).first()
+        upload_mock.return_value = {
+            "storage_key": "NOKIA-DWDM/historical-atp-rev-000.pdf",
+            "stored_filename": "historical-atp-rev-000.pdf",
+            "mime_type": "application/pdf",
+            "file_size": 12,
+        }
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("document_upload", args=[historical.pk]),
+            {
+                "file": SimpleUploadedFile(
+                    "historical-atp.pdf",
+                    b"test content",
+                    content_type="application/pdf",
+                ),
+                "change_summary": "Melengkapi file historis",
+            },
+        )
+
+        self.assertEqual(response.status_code, 302)
+        historical.refresh_from_db()
+        version = historical.versions.get()
+        self.assertEqual(historical.status, Document.Status.UNDER_REVIEW)
+        self.assertTrue(version.is_locked)
+        upload_mock.assert_called_once()
+
     def test_revision_required_must_upload_a_new_version_before_submit(self):
         self.document.status = Document.Status.REVISION_REQUIRED
         self.document.save(update_fields=["status", "updated_at"])

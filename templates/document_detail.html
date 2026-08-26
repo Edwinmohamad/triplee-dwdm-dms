@@ -49,6 +49,7 @@
         <section class="panel sticky-panel">
             <p class="eyebrow">TRIPLE E ACTION</p><h3>Upload revisi</h3>
             <p class="muted upload-hint">File tersimpan di storage server Triple E dan tetap dapat diunduh oleh Nokia.</p>
+            {% if historical_status_without_file %}<div class="inline-warning">Status berasal dari tracker lama, tetapi file historis belum tersedia. Upload pertama akan mempertahankan status <strong>{{ document.get_status_display }}</strong>.</div>{% endif %}
             <form method="post" enctype="multipart/form-data" action="{% url 'document_upload' document.pk %}" class="stack-form">{% csrf_token %}{{ upload_form.as_p }}<button class="button primary full" type="submit" {% if not can_upload_file %}disabled{% endif %}>Upload ke Server</button></form>
             {% if can_submit %}<form method="post" action="{% url 'document_submit' document.pk %}" class="top-gap">{% csrf_token %}<button class="button success full" type="submit">Submit ke Nokia</button></form>{% endif %}
         </section>

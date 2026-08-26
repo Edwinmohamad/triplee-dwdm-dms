@@ -44,18 +44,18 @@ curl -fsS http://192.168.100.110:8095/health/
 
 Migration dan seed data dijalankan otomatis saat container web mulai.
 
-## Update dari versi Google Drive ke local storage
+## Update ke v1.2.1 local storage
 
 Backup database lama lebih dahulu:
 
 ```bash
 cd /DATA/AppData/TRIPLE-E_DMS/triplee-dwdm-dms
-docker compose exec -T db pg_dump -U triplee_dms -d triplee_dms -Fc > /DATA/AppData/TRIPLE-E_DMS/pre-v1.2.0.dump
-cp .env ../env-before-v1.2.0.backup
-ls -lh /DATA/AppData/TRIPLE-E_DMS/pre-v1.2.0.dump
+docker compose exec -T db pg_dump -U triplee_dms -d triplee_dms -Fc > /DATA/AppData/TRIPLE-E_DMS/pre-v1.2.1.dump
+cp .env ../env-before-v1.2.1.backup
+ls -lh /DATA/AppData/TRIPLE-E_DMS/pre-v1.2.1.dump
 ```
 
-Setelah source v1.2.0 sudah menggantikan source lama, hapus variabel `GOOGLE_*` dari `.env`, lalu pastikan blok berikut ada:
+Setelah source v1.2.1 sudah menggantikan source lama, hapus variabel `GOOGLE_*` dari `.env`, lalu pastikan blok berikut ada:
 
 ```dotenv
 APP_DATA_DIR=/DATA/AppData/TRIPLE-E_DMS/data
