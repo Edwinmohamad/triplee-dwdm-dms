@@ -1,4 +1,5 @@
 from pathlib import Path
+from io import BytesIO
 from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
@@ -7,6 +8,7 @@ from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
+from openpyxl import load_workbook
 
 from .models import (
     Document,
@@ -382,3 +384,155 @@ class WorkflowTests(TestCase):
                 archive.namelist(),
                 ["site-qc-f01.pdf", "site-qc-f02.jpg"],
             )
+
+    @patch("dms.views.delete_document_file")
+    def test_triplee_can_delete_last_file_from_open_revision(self, delete_mock):
+        document = Document.objects.filter(
+            status=Document.Status.NOT_STARTED,
+            batch__status=InstallationBatch.Status.INSTALLED,
+        ).first()
+        document.status = Document.Status.UPLOADED
+        document.save(update_fields=["status", "updated_at"])
+        version = DocumentVersion.objects.create(
+            document=document,
+            revision_no=0,
+            storage_key="DWDM/delete-last.pdf",
+            stored_filename="delete-last.pdf",
+            original_filename="delete-last.pdf",
+            mime_type="application/pdf",
+            file_size=12,
+            checksum_sha256="d" * 64,
+            uploaded_by=self.admin,
+        )
+        attachment = DocumentAttachment.objects.create(
+            version=version,
+            sequence_no=1,
+            storage_key="DWDM/delete-last.pdf",
+            stored_filename="delete-last.pdf",
+            original_filename="delete-last.pdf",
+            mime_type="application/pdf",
+            file_size=12,
+            checksum_sha256="d" * 64,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(
+            reverse("attachment_delete", args=[attachment.pk])
+        )
+
+        self.assertEqual(response.status_code, 302)
+        document.refresh_from_db()
+        self.assertEqual(document.status, Document.Status.NOT_STARTED)
+        self.assertFalse(document.versions.exists())
+        delete_mock.assert_called_once_with("DWDM/delete-last.pdf")
+
+    @patch("dms.views.delete_document_file")
+    def test_delete_primary_file_repoints_open_revision(self, delete_mock):
+        document = Document.objects.filter(
+            status=Document.Status.NOT_STARTED,
+            batch__status=InstallationBatch.Status.INSTALLED,
+        ).first()
+        document.status = Document.Status.UPLOADED
+        document.save(update_fields=["status", "updated_at"])
+        version = DocumentVersion.objects.create(
+            document=document,
+            revision_no=0,
+            storage_key="DWDM/delete-primary-1.pdf",
+            stored_filename="delete-primary-1.pdf",
+            original_filename="primary.pdf",
+            mime_type="application/pdf",
+            file_size=20,
+            checksum_sha256="e" * 64,
+            uploaded_by=self.admin,
+        )
+        primary = DocumentAttachment.objects.create(
+            version=version,
+            sequence_no=1,
+            storage_key="DWDM/delete-primary-1.pdf",
+            stored_filename="delete-primary-1.pdf",
+            original_filename="primary.pdf",
+            mime_type="application/pdf",
+            file_size=12,
+            checksum_sha256="e" * 64,
+        )
+        remaining = DocumentAttachment.objects.create(
+            version=version,
+            sequence_no=2,
+            storage_key="DWDM/delete-primary-2.jpg",
+            stored_filename="delete-primary-2.jpg",
+            original_filename="rack.jpg",
+            mime_type="image/jpeg",
+            file_size=8,
+            checksum_sha256="f" * 64,
+        )
+        self.client.force_login(self.admin)
+
+        response = self.client.post(reverse("attachment_delete", args=[primary.pk]))
+
+        self.assertEqual(response.status_code, 302)
+        version.refresh_from_db()
+        self.assertEqual(version.storage_key, remaining.storage_key)
+        self.assertEqual(version.file_size, remaining.file_size)
+        self.assertEqual(version.attachments.count(), 1)
+        delete_mock.assert_called_once_with(primary.storage_key)
+
+    @patch("dms.views.delete_document_file")
+    def test_nokia_cannot_delete_uploaded_file(self, delete_mock):
+        self.client.force_login(self.reviewer)
+        attachment = DocumentAttachment.objects.create(
+            version=self.version,
+            sequence_no=1,
+            storage_key="DWDM/nokia-cannot-delete.pdf",
+            stored_filename="nokia-cannot-delete.pdf",
+            original_filename="test.pdf",
+            mime_type="application/pdf",
+            file_size=5,
+            checksum_sha256="1" * 64,
+        )
+
+        response = self.client.post(
+            reverse("attachment_delete", args=[attachment.pk])
+        )
+
+        self.assertEqual(response.status_code, 403)
+        self.assertTrue(DocumentAttachment.objects.filter(pk=attachment.pk).exists())
+        delete_mock.assert_not_called()
+
+
+class ProgressReportTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_initial_data")
+        cls.reviewer = User.objects.create_user(
+            username="report-reviewer",
+            full_name="Nokia Report Reviewer",
+            password="VerySecure123!",
+            role=User.Role.NOKIA_REVIEWER,
+            must_change_password=False,
+        )
+
+    def test_progress_report_requires_login(self):
+        response = self.client.get(reverse("progress_report_export"))
+        self.assertEqual(response.status_code, 302)
+
+    def test_nokia_can_export_auditable_progress_workbook(self):
+        self.client.force_login(self.reviewer)
+        response = self.client.get(reverse("progress_report_export"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(
+            response["Content-Type"],
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        )
+        self.assertIn("TripleE_DWDM_Progress_", response["Content-Disposition"])
+        workbook = load_workbook(BytesIO(response.content), data_only=False)
+        self.assertEqual(
+            workbook.sheetnames,
+            ["Ringkasan", "Progress Site", "Detail Batch", "Riwayat Dokumen"],
+        )
+        self.assertEqual(workbook["Progress Site"].max_row, Site.objects.count() + 5)
+        self.assertEqual(
+            workbook["Detail Batch"].max_row,
+            InstallationBatch.objects.count() + 5,
+        )
+        self.assertTrue(workbook["Progress Site"]["H6"].value.startswith("=IF("))

@@ -2,38 +2,80 @@
 {% load dms_tags %}
 {% block page_title %}Dashboard Overview{% endblock %}
 {% block content %}
-<section class="dashboard-lead">
-    <div>
-        <p class="eyebrow">DOCUMENT READINESS</p>
-        <h1>{{ metrics.progress }}%</h1>
-        <p>dokumen wajib sudah approved</p>
-    </div>
-    <div class="lead-progress"><span style="width: {{ metrics.progress }}%"></span></div>
-    <div class="lead-meta"><strong>{{ metrics.approved }}/{{ metrics.documents }}</strong><span>Approved documents</span></div>
+<section class="dashboard-overview">
+    <article class="progress-hero">
+        <div class="progress-hero-head">
+            <div>
+                <p class="eyebrow">PROJECT DOCUMENT READINESS</p>
+                <h1>Progress dokumen DWDM</h1>
+                <p>QC, ATP, dan FATP dari seluruh installation batch.</p>
+            </div>
+            <a class="export-report-button" href="{% url 'progress_report_export' %}" data-file-download>
+                <span aria-hidden="true">⇩</span>
+                <span><strong>Export report</strong><small>Excel · data terbaru</small></span>
+            </a>
+        </div>
+        <div class="progress-hero-main">
+            <div class="hero-progress-ring" style="--progress: {{ metrics.progress }}" aria-label="Progress {{ metrics.progress }} persen">
+                <div><strong>{{ metrics.progress }}%</strong><span>overall</span></div>
+            </div>
+            <div class="progress-hero-copy">
+                <strong>{{ metrics.approved }} dari {{ metrics.documents }}</strong>
+                <p>dokumen wajib sudah berstatus Approved.</p>
+                <div class="hero-progress-track"><span style="width: {{ metrics.progress }}%"></span></div>
+                <div class="progress-milestones" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100%</span></div>
+                <small>Snapshot {{ report_generated_at|date:'d M Y, H:i' }} WIB</small>
+            </div>
+        </div>
+    </article>
+
+    <article class="panel status-composition">
+        <div class="section-heading">
+            <div><p class="eyebrow">STATUS DISTRIBUTION</p><h3>Komposisi dokumen</h3></div>
+            <span class="live-pill"><i></i> Live</span>
+        </div>
+        <div class="status-stack" aria-label="Komposisi status dokumen">
+            {% for item in status_breakdown %}<span class="{{ item.style }}" style="width: {{ item.percentage }}%" title="{{ item.label }}: {{ item.count }}"></span>{% endfor %}
+        </div>
+        <div class="status-legend">
+            {% for item in status_breakdown %}
+            <div><span class="legend-dot {{ item.style }}"></span><p>{{ item.label }}<small>{{ item.percentage }}% dari dokumen</small></p><strong>{{ item.count }}</strong></div>
+            {% endfor %}
+        </div>
+    </article>
 </section>
 
 <section class="metric-grid">
     <article class="metric-card"><span class="metric-icon cyan">S</span><div><strong>{{ metrics.sites }}</strong><p>Site fisik</p></div><small>DWDM project</small></article>
-    <article class="metric-card"><span class="metric-icon blue">B</span><div><strong>{{ metrics.batches }}</strong><p>Installation batch</p></div><small>Tracking aktif</small></article>
+    <article class="metric-card"><span class="metric-icon blue">B</span><div><strong>{{ metrics.batches }}</strong><p>Installation batch</p></div><small>Tracking terpisah</small></article>
     <article class="metric-card"><span class="metric-icon green">✓</span><div><strong>{{ metrics.sites_completed }}</strong><p>Site selesai</p></div><small>Semua dokumen approved</small></article>
-    <article class="metric-card"><span class="metric-icon amber">P</span><div><strong>{{ metrics.sites_pending }}</strong><p>Site pending</p></div><small>Belum lengkap</small></article>
-    <article class="metric-card"><span class="metric-icon red">!</span><div><strong>{{ metrics.sites_revision }}</strong><p>Site dengan revisi</p></div><small>Perlu tindakan Triple E</small></article>
-    <article class="metric-card"><span class="metric-icon blue">R</span><div><strong>{{ metrics.under_review }}</strong><p>Dokumen review</p></div><small>Menunggu Nokia</small></article>
+    <article class="metric-card"><span class="metric-icon amber">P</span><div><strong>{{ metrics.sites_pending }}</strong><p>Site berjalan</p></div><small>Belum lengkap</small></article>
+    <article class="metric-card"><span class="metric-icon red">!</span><div><strong>{{ metrics.sites_revision }}</strong><p>Site dengan revisi</p></div><small>Perlu tindak lanjut</small></article>
+    <article class="metric-card"><span class="metric-icon blue">R</span><div><strong>{{ metrics.under_review }}</strong><p>Dokumen review</p></div><small>Menunggu catatan Nokia</small></article>
+</section>
+
+<section class="panel document-progress-section">
+    <div class="section-heading">
+        <div><p class="eyebrow">BY DOCUMENT TYPE</p><h3>Progress QC, ATP & FATP</h3><p>Persentase Approved untuk setiap kelompok dokumen.</p></div>
+        <a href="{% url 'site_list' %}">Buka register →</a>
+    </div>
+    <div class="document-progress-grid">
+        {% for item in type_summary %}
+        <article class="document-progress-card">
+            <div class="document-ring" style="--progress: {{ item.progress }}">
+                <div><strong>{{ item.progress }}%</strong><span>{{ item.type }}</span></div>
+            </div>
+            <div class="document-progress-copy">
+                <div><span class="doc-token">{{ item.type }}</span><small>DOCUMENT GROUP</small></div>
+                <strong>{{ item.approved }} / {{ item.total }} approved</strong>
+                <p><span class="status-dot info"></span>{{ item.under_review }} review <span class="status-dot warning"></span>{{ item.revision }} revisi</p>
+            </div>
+        </article>
+        {% endfor %}
+    </div>
 </section>
 
 <section class="split-grid">
-    <div class="panel">
-        <div class="section-heading"><div><p class="eyebrow">BY DOCUMENT TYPE</p><h3>Progress QC, ATP & FATP</h3></div><a href="{% url 'site_list' %}">Lihat semua →</a></div>
-        <div class="document-summary-list">
-            {% for item in type_summary %}
-            <div class="document-summary-row">
-                <span class="doc-token">{{ item.type }}</span>
-                <div><strong>{{ item.approved }}/{{ item.total }} approved</strong><div class="progress-track"><span style="width: {{ item.progress }}%"></span></div></div>
-                <div class="summary-numbers"><b>{{ item.progress }}%</b><small>{{ item.under_review }} review · {{ item.revision }} revisi</small></div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
     <div class="panel">
         <div class="section-heading"><div><p class="eyebrow">NEEDS ATTENTION</p><h3>Prioritas tindak lanjut</h3></div></div>
         <div class="attention-list">
@@ -44,6 +86,14 @@
                 <span>→</span>
             </a>
             {% empty %}<div class="empty-state"><strong>Tidak ada isu aktif</strong><p>Semua dokumen berjalan sesuai alur.</p></div>{% endfor %}
+        </div>
+    </div>
+    <div class="panel">
+        <div class="section-heading"><div><p class="eyebrow">PROJECT SIGNAL</p><h3>Status operasional</h3></div></div>
+        <div class="project-signal-list">
+            <div><span class="metric-icon green">✓</span><p><strong>{{ metrics.approved }} dokumen Approved</strong><small>Siap untuk pelaporan progres</small></p></div>
+            <div><span class="metric-icon blue">R</span><p><strong>{{ metrics.under_review }} dalam review</strong><small>Nokia dapat mengunduh dan memberi komentar</small></p></div>
+            <div><span class="metric-icon amber">I</span><p><strong>{{ metrics.pending_installation }} batch pending instalasi</strong><small>Dokumen belum dapat diunggah</small></p></div>
         </div>
     </div>
 </section>

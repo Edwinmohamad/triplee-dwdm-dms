@@ -44,18 +44,18 @@ curl -fsS http://192.168.100.110:8095/health/
 
 Migration dan seed data dijalankan otomatis saat container web mulai.
 
-## Update ke v1.3.0 multi-file QC
+## Update ke v1.4.0 dashboard, dark mode, report Excel, dan hapus file
 
 Backup database lama lebih dahulu:
 
 ```bash
 cd /DATA/AppData/TRIPLE-E_DMS/triplee-dwdm-dms
-docker compose exec -T db pg_dump -U triplee_dms -d triplee_dms -Fc > /DATA/AppData/TRIPLE-E_DMS/pre-v1.3.0.dump
-cp .env ../env-before-v1.3.0.backup
-ls -lh /DATA/AppData/TRIPLE-E_DMS/pre-v1.3.0.dump
+docker compose exec -T db pg_dump -U triplee_dms -d triplee_dms -Fc > /DATA/AppData/TRIPLE-E_DMS/pre-v1.4.0.dump
+cp .env ../env-before-v1.4.0.backup
+ls -lh /DATA/AppData/TRIPLE-E_DMS/pre-v1.4.0.dump
 ```
 
-Setelah source v1.3.0 sudah menggantikan source lama, hapus variabel `GOOGLE_*` dari `.env`, lalu pastikan blok berikut ada:
+Setelah source v1.4.0 sudah menggantikan source lama, hapus variabel `GOOGLE_*` dari `.env`, lalu pastikan blok berikut ada:
 
 ```dotenv
 APP_DATA_DIR=/DATA/AppData/TRIPLE-E_DMS/data
@@ -84,6 +84,11 @@ docker compose exec web python manage.py test
 curl -fsS http://192.168.100.110:8095/health/
 curl -fsSI http://192.168.100.110:8095/branding/logo/
 ```
+
+Karena v1.4.0 menambahkan dependency pembuat Excel, update wajib memakai `--build`.
+Tidak ada migration database baru pada v1.4.0. Tombol **Export report** tersedia di
+dashboard untuk seluruh pengguna yang sudah login. Tombol **Hapus** hanya muncul pada
+file di revisi yang belum disubmit dan tidak terkunci.
 
 Migration `0003_local_server_storage` menghapus kredensial OAuth dan mengganti referensi Drive dengan storage key lokal. Data site, batch, status, user, review, komentar, notifikasi, dan audit log tetap dipertahankan.
 

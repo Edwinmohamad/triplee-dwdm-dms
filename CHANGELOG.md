@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.4.0
+
+- Menghilangkan kotak putih logo dan membersihkan background putih dari tepi gambar logo di browser.
+- Menambahkan dark mode global dengan pilihan tema yang tersimpan di browser.
+- Mendesain ulang dashboard dengan progress ring, status distribution, dan visual per tipe dokumen.
+- Menambahkan export laporan progres Excel berisi Ringkasan, Progress Site, Detail Batch, dan Riwayat Dokumen.
+- Menambahkan chart, formula persentase, filter, serta conditional formatting pada report Excel.
+- Menambahkan tombol hapus per file untuk tim Triple E selama revisi masih terbuka dan belum disubmit.
+- Menjaga file pada revisi terkunci agar tidak dapat dihapus oleh Nokia maupun pengguna internal.
+
+## 1.3.1
+
+- Menambahkan loader global dengan animasi logo Triple E saat halaman dibuka atau dimuat ulang.
+- Menampilkan loader khusus upload berisi jumlah file dan total ukuran upload.
+- Menonaktifkan tombol upload setelah submit untuk mencegah upload ganda.
+- Menambahkan loading state pada navigasi dan penyimpanan form.
+
 ## 1.3.0
 
 - Menambahkan beberapa attachment dalam satu revisi QC.

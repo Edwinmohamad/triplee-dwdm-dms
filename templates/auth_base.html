@@ -6,12 +6,17 @@
     <meta name="robots" content="noindex,nofollow">
     <title>{% block title %}Triple E DWDM Document Control{% endblock %}</title>
     {% load static %}
+    <script>
+        (() => { try { const saved = localStorage.getItem('triplee-theme'); const theme = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.theme = theme; } catch (_) { document.documentElement.dataset.theme = 'light'; } })();
+    </script>
     <link rel="stylesheet" href="{% static 'dms/app.css' %}">
 </head>
 <body class="auth-body">
+    {% include '_page_loader.html' %}
+    <button class="theme-toggle auth-theme-toggle" type="button" data-theme-toggle aria-label="Aktifkan mode gelap" title="Aktifkan mode gelap"><span data-theme-icon aria-hidden="true">☾</span><span data-theme-label>Mode gelap</span></button>
     <main class="auth-shell">
         <section class="auth-brand">
-            <div class="brand-logo-wrap auth-logo"><span class="brand-mark">3E</span><img src="{% url 'brand_logo' %}" alt="Logo Triple E" onerror="this.hidden=true"></div>
+            <div class="brand-logo-wrap auth-logo"><span class="brand-mark">3E</span><img src="{% url 'brand_logo' %}" alt="Logo Triple E" data-transparent-logo onload="this.parentElement.classList.add('has-logo')" onerror="this.hidden=true"></div>
             <p class="eyebrow">PT TRIPLE E × NOKIA</p>
             <h1>DWDM Document<br>Control Center</h1>
             <p class="auth-copy">Satu tempat untuk memantau QC, ATP, FATP, revisi, dan persetujuan setiap installation batch.</p>
@@ -24,5 +29,6 @@
             {% block content %}{% endblock %}
         </section>
     </main>
+    <script src="{% static 'dms/app.js' %}"></script>
 </body>
 </html>

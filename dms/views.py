@@ -13,8 +13,8 @@ from django.contrib.auth.views import LoginView
 from django.core.exceptions import PermissionDenied
 from django.core.management import call_command
 from django.db import transaction
-from django.db.models import Q, Sum
-from django.http import FileResponse, Http404, JsonResponse
+from django.db.models import Max, Q, Sum
+from django.http import FileResponse, Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -52,6 +52,7 @@ from .services.local_storage import (
     store_document_file,
 )
 from .services.notifications import notify_roles
+from .services.progress_report import build_progress_report
 
 
 ADMIN_ROLES = {User.Role.SUPER_ADMIN, User.Role.TRIPLEE_ADMIN}
@@ -170,6 +171,11 @@ def dashboard(request):
             completed_sites += 1
         elif has_revision:
             revision_sites += 1
+    under_review = applicable.filter(status=Document.Status.UNDER_REVIEW).count()
+    revision_required = applicable.filter(
+        status__in={Document.Status.REVISION_REQUIRED, Document.Status.REJECTED}
+    ).count()
+    in_progress = max(total_documents - approved - under_review - revision_required, 0)
     metrics = {
         "sites": len(site_rows),
         "batches": InstallationBatch.objects.count(),
@@ -178,11 +184,32 @@ def dashboard(request):
         "sites_completed": completed_sites,
         "sites_revision": revision_sites,
         "sites_pending": len(site_rows) - completed_sites - revision_sites,
-        "under_review": applicable.filter(status=Document.Status.UNDER_REVIEW).count(),
-        "revision_required": applicable.filter(status=Document.Status.REVISION_REQUIRED).count(),
+        "under_review": under_review,
+        "revision_required": revision_required,
         "not_started": applicable.filter(status=Document.Status.NOT_STARTED).count(),
+        "in_progress": in_progress,
+        "pending_installation": InstallationBatch.objects.filter(
+            status=InstallationBatch.Status.PENDING_INSTALLATION
+        ).count(),
         "progress": round((approved / total_documents) * 100) if total_documents else 0,
     }
+    status_breakdown = []
+    for label, count, style in (
+        ("Approved", approved, "approved"),
+        ("Under Review", under_review, "review"),
+        ("Perlu Revisi", revision_required, "revision"),
+        ("Proses / Belum Mulai", in_progress, "pending"),
+    ):
+        status_breakdown.append(
+            {
+                "label": label,
+                "count": count,
+                "style": style,
+                "percentage": round((count / total_documents) * 100)
+                if total_documents
+                else 0,
+            }
+        )
     type_summary = []
     for doc_type, label in Document.Type.choices:
         subset = applicable.filter(document_type=doc_type)
@@ -209,11 +236,32 @@ def dashboard(request):
         "dashboard.html",
         {
             "metrics": metrics,
+            "status_breakdown": status_breakdown,
             "type_summary": type_summary,
             "attention": attention,
             "recent_activity": recent_activity,
+            "report_generated_at": timezone.localtime(),
         },
     )
+
+
+@login_required
+def progress_report_export(request):
+    report, filename = build_progress_report()
+    log_activity(
+        request,
+        "PROGRESS_REPORT_EXPORTED",
+        None,
+        "Laporan progress dokumen diekspor ke Excel",
+        {"filename": filename},
+    )
+    response = HttpResponse(
+        report.getvalue(),
+        content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Cache-Control"] = "no-store"
+    return response
 
 
 @login_required
@@ -313,6 +361,7 @@ def document_detail(request, pk):
             "review_form": ReviewForm(),
             "comment_form": CommentForm(),
             "can_upload": request.user.role in UPLOAD_ROLES,
+            "can_delete_files": request.user.role in UPLOAD_ROLES,
             "can_review": request.user.role in REVIEW_ROLES,
             "can_upload_file": (
                 request.user.role in UPLOAD_ROLES
@@ -330,6 +379,7 @@ def document_detail(request, pk):
             ),
             "can_reopen": request.user.role in ADMIN_ROLES and document.status == Document.Status.APPROVED,
             "historical_status_without_file": historical_status_without_file,
+            "latest_version_id": latest_version.pk if latest_version else None,
         },
     )
 
@@ -389,7 +439,9 @@ def document_upload(request, pk):
     if append_to_latest:
         version = latest_version
         revision_no = version.revision_no
-        first_sequence = version.attachments.count() + 1
+        first_sequence = (
+            version.attachments.aggregate(last=Max("sequence_no"))["last"] or 0
+        ) + 1
     else:
         latest_revision = (
             document.versions.order_by("-revision_no")
@@ -528,6 +580,92 @@ def document_submit(request, pk):
     log_activity(request, "DOCUMENT_SUBMITTED", document, f"{document} disubmit ke Nokia")
     messages.success(request, "Dokumen berhasil disubmit ke Nokia.")
     return redirect("document_detail", pk=pk)
+
+
+@role_required(*UPLOAD_ROLES)
+@require_POST
+def attachment_delete(request, attachment_pk):
+    attachment = get_object_or_404(
+        DocumentAttachment.objects.select_related("version__document"),
+        pk=attachment_pk,
+    )
+    version = attachment.version
+    document = version.document
+    latest = document.latest_version
+    if (
+        version.is_locked
+        or not latest
+        or latest.pk != version.pk
+        or document.status not in {Document.Status.UPLOADED, Document.Status.DRAFT}
+    ):
+        messages.error(
+            request,
+            "File pada revisi yang sudah disubmit atau dikunci tidak dapat dihapus.",
+        )
+        return redirect("document_detail", pk=document.pk)
+
+    storage_key = attachment.storage_key
+    version_id = version.pk
+    revision_no = version.revision_no
+    deleted_filename = attachment.stored_filename
+    deleted_checksum = attachment.checksum_sha256
+    with transaction.atomic():
+        attachment.delete()
+        remaining = list(version.attachments.all())
+        if remaining:
+            primary = remaining[0]
+            version.storage_key = primary.storage_key
+            version.stored_filename = primary.stored_filename
+            version.original_filename = primary.original_filename
+            version.mime_type = primary.mime_type
+            version.checksum_sha256 = primary.checksum_sha256
+            version.file_size = sum(item.file_size for item in remaining)
+            version.save(
+                update_fields=[
+                    "storage_key",
+                    "stored_filename",
+                    "original_filename",
+                    "mime_type",
+                    "checksum_sha256",
+                    "file_size",
+                ]
+            )
+            document.save(update_fields=["updated_at"])
+        else:
+            version.delete()
+            document.status = (
+                Document.Status.REVISION_REQUIRED
+                if document.versions.exists()
+                else Document.Status.NOT_STARTED
+            )
+            document.approved_at = None
+            if document.status == Document.Status.NOT_STARTED:
+                document.submitted_at = None
+            document.save(
+                update_fields=["status", "submitted_at", "approved_at", "updated_at"]
+            )
+
+    try:
+        delete_document_file(storage_key)
+    except Exception as exc:
+        messages.warning(
+            request,
+            f"File sudah dihapus dari DMS, tetapi pembersihan storage perlu diperiksa: {exc}",
+        )
+    log_activity(
+        request,
+        "DOCUMENT_ATTACHMENT_DELETED",
+        document,
+        f"File {deleted_filename} dihapus dari {document.document_type} Rev {revision_no}",
+        {
+            "version_id": version_id,
+            "revision": revision_no,
+            "stored_filename": deleted_filename,
+            "checksum": deleted_checksum,
+        },
+    )
+    messages.success(request, f"File {deleted_filename} berhasil dihapus.")
+    return redirect("document_detail", pk=document.pk)
 
 
 @role_required(*REVIEW_ROLES)

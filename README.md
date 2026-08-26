@@ -14,6 +14,10 @@ Dashboard dan Document Management System untuk monitoring QC, ATP, dan FATP proy
 - Keputusan Approve, Request Revision, atau Reject hanya dapat dicatat oleh Super Admin.
 - Role: Super Admin, Triple E Admin, Triple E Engineer, Nokia Reviewer, Nokia Viewer.
 - In-app notifications dan audit trail.
+- Dark mode global yang tersimpan otomatis untuk setiap browser.
+- Dashboard analitik dengan progress ring dan distribusi status dokumen.
+- Export report progres `.xlsx` per site dan installation batch.
+- Penghapusan file individual hanya pada revisi terbuka; revisi yang sudah disubmit tetap terkunci.
 - Backup PostgreSQL terenkripsi pada storage server.
 - Docker Compose untuk CasaOS pada `192.168.100.110:8095`.
 - Login menggunakan username tanpa kewajiban email.

@@ -6,13 +6,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="robots" content="noindex,nofollow">
     <title>{% block title %}Triple E DWDM Document Control{% endblock %}</title>
+    <script>
+        (() => { try { const saved = localStorage.getItem('triplee-theme'); const theme = saved || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'); document.documentElement.dataset.theme = theme; } catch (_) { document.documentElement.dataset.theme = 'light'; } })();
+    </script>
     <link rel="stylesheet" href="{% static 'dms/app.css' %}">
 </head>
 <body>
+{% include '_page_loader.html' %}
 <div class="app-shell">
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <span class="brand-logo-wrap small"><span class="brand-mark small">3E</span><img src="{% url 'brand_logo' %}" alt="Logo Triple E" onerror="this.hidden=true"></span>
+            <span class="brand-logo-wrap small"><span class="brand-mark small">3E</span><img src="{% url 'brand_logo' %}" alt="Logo Triple E" data-transparent-logo onload="this.parentElement.classList.add('has-logo')" onerror="this.hidden=true"></span>
             <span><strong>Triple E</strong><small>Document Control</small></span>
         </div>
         <nav class="nav-list" aria-label="Navigasi utama">
@@ -45,6 +49,7 @@
             </div>
             <div class="topbar-actions">
                 <span class="system-status"><i></i> System online</span>
+                <button class="theme-toggle" type="button" data-theme-toggle aria-label="Aktifkan mode gelap" title="Aktifkan mode gelap"><span data-theme-icon aria-hidden="true">☾</span><span data-theme-label>Mode gelap</span></button>
                 <a class="notification-button" href="{% url 'notifications' %}" aria-label="Notifikasi">●{% if unread_notifications %}<b>{{ unread_notifications }}</b>{% endif %}</a>
             </div>
         </header>

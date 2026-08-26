@@ -26,7 +26,15 @@
                         <div class="attachment-row">
                             <span class="attachment-number">{{ attachment.sequence_no|stringformat:'02d' }}</span>
                             <div><strong>{{ attachment.stored_filename }}</strong><small>File asli: {{ attachment.original_filename }} · {{ attachment.file_size|file_size }}{% if attachment.description %} · {{ attachment.description }}{% endif %}</small></div>
-                            <div class="version-actions"><a class="button ghost small" href="{% url 'attachment_preview' attachment.pk %}" target="_blank">Preview</a><a class="button secondary small" href="{% url 'attachment_download' attachment.pk %}">Download</a></div>
+                            <div class="version-actions">
+                                <a class="button ghost small" href="{% url 'attachment_preview' attachment.pk %}" target="_blank">Preview</a>
+                                <a class="button secondary small" href="{% url 'attachment_download' attachment.pk %}">Download</a>
+                                {% if can_delete_files and not version.is_locked and latest_version_id == version.pk %}
+                                    {% if document.status == 'UPLOADED' or document.status == 'DRAFT' %}
+                                    <form method="post" action="{% url 'attachment_delete' attachment.pk %}" data-confirm="Hapus file {{ attachment.stored_filename|escapejs }}? Tindakan ini tidak dapat dibatalkan.">{% csrf_token %}<button class="button danger small" type="submit">Hapus</button></form>
+                                    {% endif %}
+                                {% endif %}
+                            </div>
                         </div>
                     {% empty %}
                         <div class="attachment-row"><span class="attachment-number">01</span><div><strong>{{ version.stored_filename }}</strong><small>File asli: {{ version.original_filename }} · {{ version.file_size|file_size }}</small></div><div class="version-actions"><a class="button ghost small" href="{% url 'document_preview' version.pk %}" target="_blank">Preview</a><a class="button secondary small" href="{% url 'document_download' version.pk %}">Download</a></div></div>
@@ -64,7 +72,7 @@
             <p class="muted upload-hint">File tersimpan di storage server Triple E dan tetap dapat diunduh oleh Nokia.</p>
             {% if document.document_type == 'QC' %}<div class="multi-file-note"><strong>Multi-file QC</strong><span>Pilih beberapa file sekaligus. Selama belum disubmit, upload berikutnya ditambahkan ke revisi QC yang sama.</span></div>{% endif %}
             {% if historical_status_without_file %}<div class="inline-warning">Status berasal dari tracker lama, tetapi file historis belum tersedia. Upload pertama akan mempertahankan status <strong>{{ document.get_status_display }}</strong>.</div>{% endif %}
-            <form method="post" enctype="multipart/form-data" action="{% url 'document_upload' document.pk %}" class="stack-form">{% csrf_token %}{{ upload_form.as_p }}<button class="button primary full" type="submit" {% if not can_upload_file %}disabled{% endif %}>{% if document.document_type == 'QC' %}Upload File QC{% else %}Upload ke Server{% endif %}</button></form>
+            <form method="post" enctype="multipart/form-data" action="{% url 'document_upload' document.pk %}" class="stack-form" data-upload-form>{% csrf_token %}{{ upload_form.as_p }}<button class="button primary full" type="submit" data-upload-button {% if not can_upload_file %}disabled{% endif %}>{% if document.document_type == 'QC' %}Upload File QC{% else %}Upload ke Server{% endif %}</button></form>
             {% if can_submit %}<form method="post" action="{% url 'document_submit' document.pk %}" class="top-gap">{% csrf_token %}<button class="button success full" type="submit">Submit ke Nokia</button></form>{% endif %}
         </section>
         {% endif %}
