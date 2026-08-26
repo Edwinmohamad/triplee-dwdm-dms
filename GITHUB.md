@@ -1,7 +1,7 @@
 # GitHub Setup — Triple E DMS
 
 Repository harus dibuat **Private** karena aplikasi memuat workflow dan struktur internal
-PT Triple E. File `.env`, database, backup, token OAuth, dan private key sudah dikecualikan
+PT Triple E. File `.env`, database, dokumen, backup, dan private key sudah dikecualikan
 melalui `.gitignore`.
 
 ## Initial push dari CasaOS

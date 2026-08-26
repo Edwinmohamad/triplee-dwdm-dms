@@ -5,6 +5,9 @@ __pycache__
 .pytest_cache
 .venv
 backups
+data
+documents
+postgres
 staticfiles
 db.sqlite3
-
+*.zip

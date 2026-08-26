@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+{% load dms_tags %}
+{% block page_title %}Storage Server{% endblock %}
+{% block content %}
+<div class="section-heading page-heading"><div><p class="eyebrow">LOCAL DOCUMENT STORAGE</p><h3>Penyimpanan server aktif</h3><p>Dokumen QC, ATP, dan FATP disimpan langsung pada drive server Triple E.</p></div><span class="badge large success">Online</span></div>
+
+<div class="metric-grid storage-metrics">
+    <div class="metric-card"><span class="metric-icon cyan">DOC</span><div><strong>{{ document_count }}</strong><p>Versi dokumen</p></div><small>Total {{ document_bytes|file_size }}</small></div>
+    <div class="metric-card"><span class="metric-icon blue">DSK</span><div><strong>{{ disk_percent }}%</strong><p>Kapasitas terpakai</p></div><small>{{ disk_used|file_size }} dari {{ disk_total|file_size }}</small></div>
+    <div class="metric-card"><span class="metric-icon green">AVL</span><div><strong>{{ disk_free|file_size }}</strong><p>Ruang tersedia</p></div><small>Drive server CasaOS</small></div>
+</div>
+
+<div class="split-grid">
+    <section class="panel"><div class="section-heading"><div><p class="eyebrow">DOCUMENT LOCATION</p><h3>Folder dokumen</h3></div></div><code class="code-block">{{ storage_path }}</code><p class="muted">Subfolder proyek, site, batch, tipe dokumen, dan revisi dibuat otomatis saat file diunggah.</p></section>
+    <section class="panel"><div class="section-heading"><div><p class="eyebrow">LATEST BACKUP</p><h3>Status backup database</h3></div></div>{% if latest_backup %}<dl class="detail-list"><div><dt>Waktu</dt><dd>{{ latest_backup.finished_at|date:'d M Y, H:i' }}</dd></div><div><dt>File</dt><dd>{{ latest_backup.filename }}</dd></div><div><dt>Ukuran</dt><dd>{{ latest_backup.file_size|file_size }}</dd></div></dl>{% else %}<div class="empty-state compact"><p>Belum ada backup yang berhasil.</p></div>{% endif %}<a class="button secondary" href="{% url 'backup_status' %}">Lihat semua backup</a></section>
+</div>
+
+<div class="inline-warning storage-note"><strong>Penting:</strong> storage lokal menjaga file tetap di server Anda. Untuk perlindungan dari kerusakan disk atau server, salin folder <code>data</code> secara berkala ke perangkat fisik lain.</div>
+{% endblock %}

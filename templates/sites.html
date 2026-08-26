@@ -2,20 +2,34 @@
 {% load dms_tags %}
 {% block page_title %}Site & Installation Batch{% endblock %}
 {% block content %}
-<div class="section-heading page-heading"><div><p class="eyebrow">16 PHYSICAL SITES · 18 BATCHES</p><h3>Document register per site</h3><p>Pilih site untuk melihat batch instalasi dan status QC, ATP, FATP.</p></div></div>
-<div class="site-grid">
-{% for site in sites %}
-    <a class="site-card" href="{% url 'site_detail' site.pk %}">
-        <div class="site-card-top"><span class="sequence">{{ site.sequence_no|stringformat:'02d' }}</span><span class="region-tag">{{ site.region }}</span></div>
-        <h3>{{ site.name }}</h3><p>{{ site.tower_id }}</p>
-        <div class="site-progress"><div><span>Document progress</span><strong>{{ site.document_progress }}%</strong></div><div class="progress-track"><span style="width: {{ site.document_progress }}%"></span></div><small>{{ site.document_approved }}/{{ site.document_total }} approved</small></div>
-        <div class="site-batches">
-            {% for batch in site.batches.all %}
-            <div><span>{{ batch.label }}</span><b class="badge {{ batch.status|status_class }}">{{ batch.get_status_display }}</b></div>
-            {% endfor %}
-        </div>
-        <span class="card-link">Buka site →</span>
-    </a>
-{% endfor %}
+<div class="section-heading page-heading">
+    <div><p class="eyebrow">16 PHYSICAL SITES · 18 INSTALLATION BATCHES</p><h3>Document register per site</h3><p>Cari site dan pantau QC, ATP, serta FATP dalam satu daftar.</p></div>
 </div>
+
+<section class="site-register" data-site-register>
+    <div class="site-toolbar">
+        <label class="site-search"><span>Cari site atau Tower ID</span><input type="search" placeholder="Contoh: Mentigi atau SUM-BB..." data-site-search></label>
+        <label><span>Region</span><select data-site-region><option value="">Semua region</option>{% for region in regions %}<option value="{{ region|lower }}">{{ region }}</option>{% endfor %}</select></label>
+        <label><span>Status</span><select data-site-status><option value="">Semua status</option><option value="complete">Completed</option><option value="review">Under Review</option><option value="revision">Perlu Revisi</option><option value="progress">In Progress</option><option value="pending">Pending Instalasi</option></select></label>
+        <span class="site-result-count"><b data-site-count>{{ sites|length }}</b> site ditampilkan</span>
+    </div>
+
+    <div class="site-register-head" aria-hidden="true">
+        <span>Site / Tower ID</span><span>Region</span><span>Batch</span><span>QC</span><span>ATP</span><span>FATP</span><span>Progress</span><span>Status</span><span></span>
+    </div>
+    <div class="site-register-body">
+    {% for site in sites %}
+        <article class="site-register-row" data-site-row data-search="{{ site.name|lower }} {{ site.tower_id|lower }}" data-region="{{ site.region|lower }}" data-status="{{ site.filter_status }}">
+            <div class="site-identity" data-label="Site"><span class="sequence">{{ site.sequence_no|stringformat:'02d' }}</span><div><strong>{{ site.name }}</strong><small>{{ site.tower_id }}</small></div></div>
+            <div class="site-cell" data-label="Region"><span class="region-tag">{{ site.region }}</span></div>
+            <div class="site-cell batch-stack" data-label="Batch"><strong>{{ site.batches.count }}</strong><small>{% for batch in site.batches.all %}{{ batch.label }}{% if not forloop.last %}, {% endif %}{% endfor %}</small></div>
+            {% for summary in site.document_summaries %}<div class="site-cell" data-label="{{ summary.type }}"><span class="badge {{ summary.code|status_class }}">{{ summary.label }}</span></div>{% endfor %}
+            <div class="site-cell site-progress-compact" data-label="Progress"><div><strong>{{ site.document_progress }}%</strong><small>{{ site.document_approved }}/{{ site.document_total }}</small></div><div class="progress-track"><span style="width: {{ site.document_progress }}%"></span></div></div>
+            <div class="site-cell" data-label="Status"><span class="badge {{ site.overall.code|status_class }}">{{ site.overall.label }}</span></div>
+            <div class="site-row-action"><a href="{% url 'site_detail' site.pk %}" aria-label="Buka {{ site.name }}">Buka <span>→</span></a></div>
+        </article>
+    {% endfor %}
+        <div class="site-empty-filter" data-site-empty hidden><strong>Site tidak ditemukan</strong><p>Ubah kata pencarian atau filter yang dipilih.</p></div>
+    </div>
+</section>
 {% endblock %}

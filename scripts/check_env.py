@@ -15,7 +15,6 @@ required = [
     "DJANGO_SECRET_KEY",
     "DATABASE_URL",
     "POSTGRES_PASSWORD",
-    "GOOGLE_TOKEN_ENCRYPTION_KEY",
     "BACKUP_ENCRYPTION_KEY",
 ]
 
@@ -29,7 +28,7 @@ for name in required:
 if len(os.environ["DJANGO_SECRET_KEY"]) < 50:
     fail("DJANGO_SECRET_KEY minimal 50 karakter.")
 
-for name in ["GOOGLE_TOKEN_ENCRYPTION_KEY", "BACKUP_ENCRYPTION_KEY"]:
+for name in ["BACKUP_ENCRYPTION_KEY"]:
     try:
         decoded = base64.urlsafe_b64decode(os.environ[name].encode())
     except Exception:

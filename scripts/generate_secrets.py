@@ -9,6 +9,5 @@ def fernet_key():
 
 
 print(f"DJANGO_SECRET_KEY={secrets.token_urlsafe(64)}")
-print(f"GOOGLE_TOKEN_ENCRYPTION_KEY={fernet_key()}")
 print(f"BACKUP_ENCRYPTION_KEY={fernet_key()}")
 print(f"POSTGRES_PASSWORD={secrets.token_urlsafe(32)}")

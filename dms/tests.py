@@ -1,10 +1,48 @@
+from pathlib import Path
+from tempfile import TemporaryDirectory
 from unittest.mock import patch
 
+from django.core.exceptions import SuspiciousFileOperation
+from django.core.files.uploadedfile import SimpleUploadedFile
 from django.core.management import call_command
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 
 from .models import Document, DocumentVersion, InstallationBatch, Review, Site, User
+from .services.local_storage import open_document_file, store_document_file
+
+
+class LocalStorageTests(TestCase):
+    @classmethod
+    def setUpTestData(cls):
+        call_command("seed_initial_data")
+        cls.document = Document.objects.select_related(
+            "batch__site__project"
+        ).exclude(batch__status=InstallationBatch.Status.PENDING_INSTALLATION).first()
+
+    def test_document_is_stored_in_structured_relative_path(self):
+        with TemporaryDirectory() as temporary_root, override_settings(
+            DOCUMENT_STORAGE_ROOT=temporary_root
+        ):
+            uploaded = SimpleUploadedFile(
+                "QC Final.PDF",
+                b"test document",
+                content_type="application/pdf",
+            )
+            result = store_document_file(self.document, uploaded, 0)
+            stored_path = Path(temporary_root) / result["storage_key"]
+
+            self.assertTrue(stored_path.is_file())
+            self.assertIn("BATCH-", result["storage_key"])
+            self.assertIn("REV-000", result["storage_key"])
+            self.assertEqual(stored_path.read_bytes(), b"test document")
+
+    def test_storage_key_cannot_escape_document_root(self):
+        with TemporaryDirectory() as temporary_root, override_settings(
+            DOCUMENT_STORAGE_ROOT=temporary_root
+        ):
+            with self.assertRaises(SuspiciousFileOperation):
+                open_document_file("../outside.pdf")
 
 
 class InitialDataTests(TestCase):
@@ -83,7 +121,7 @@ class WorkflowTests(TestCase):
         cls.version = DocumentVersion.objects.create(
             document=cls.document,
             revision_no=0,
-            drive_file_id="drive-file-001",
+            storage_key="DWDM/test.pdf",
             stored_filename="test.pdf",
             original_filename="test.pdf",
             mime_type="application/pdf",
@@ -137,7 +175,7 @@ class WorkflowTests(TestCase):
         )
         self.assertEqual(response.status_code, 403)
 
-    @patch("dms.views.upload_document_file")
+    @patch("dms.views.store_document_file")
     def test_upload_is_blocked_while_under_review(self, upload_mock):
         self.client.force_login(self.admin)
         response = self.client.post(reverse("document_upload", args=[self.document.pk]))
@@ -153,7 +191,7 @@ class WorkflowTests(TestCase):
         self.document.refresh_from_db()
         self.assertEqual(self.document.status, Document.Status.REVISION_REQUIRED)
 
-    @patch("dms.views.download_drive_file")
+    @patch("dms.views.open_document_file")
     def test_download_is_available_to_nokia(self, download_mock):
         import io
 

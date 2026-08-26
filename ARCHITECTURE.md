@@ -7,9 +7,9 @@ flowchart TD
     U[Triple E dan Nokia] --> C[Cloudflare Tunnel]
     C --> W[Django DMS :8095]
     W --> P[(PostgreSQL)]
-    W --> G[Google Drive API]
+    W --> D[(Local Document Storage)]
     B[Backup scheduler] --> P
-    B --> G
+    B --> D
 ```
 
 Cloudflare mengarah ke `http://192.168.100.110:8095`. PostgreSQL hanya berada di private Docker network dan tidak memiliki host port.
@@ -50,8 +50,8 @@ erDiagram
 | Site, batch, status, role | PostgreSQL |
 | Review, komentar, notifikasi | PostgreSQL |
 | Audit upload/preview/download | PostgreSQL |
-| File dokumen dan backup | Google Drive pribadi |
-| File ID, checksum, revision number | PostgreSQL |
+| File dokumen dan backup | Storage lokal server CasaOS |
+| Storage key, checksum, revision number | PostgreSQL |
 
 ## Document state machine
 
@@ -80,13 +80,13 @@ Approved versions remain immutable. Reopening a document changes the register st
 | Nokia Reviewer | Ya | Tidak | Approve/Revision/Reject | Tidak | Tidak |
 | Nokia Viewer | Ya | Tidak | Tidak | Tidak | Tidak |
 
-Semua role dapat menambahkan komentar. Nokia mengakses file melalui endpoint DMS terautentikasi dan tidak menerima public link atau izin langsung pada folder Google Drive.
+Semua role dapat menambahkan komentar. Nokia mengakses file melalui endpoint DMS terautentikasi dan tidak menerima public link atau akses langsung ke folder server.
 
 ## Security boundaries
 
-- Google Drive uses OAuth scope `drive.file`.
-- OAuth refresh tokens and database backups are encrypted using separate Fernet keys.
-- No `Anyone with the link` sharing.
+- Folder dokumen hanya di-mount ke container web dan tidak dipublikasikan sebagai static directory.
+- Database backups are encrypted using a dedicated Fernet key.
+- Tidak ada public file sharing; seluruh preview dan download melewati autentikasi aplikasi.
 - Download and preview flow through the authenticated DMS.
 - Database is not exposed outside Docker network.
 - Login is locked for 15 minutes after five failed attempts.

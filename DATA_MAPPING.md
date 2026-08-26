@@ -56,6 +56,6 @@ Nilai status dokumen yang diterima: `NOT_STARTED`, `DRAFT`, `UPLOADED`, `UNDER_R
 1. Kunci site adalah gabungan `project_code + tower_id`.
 2. Kunci batch adalah gabungan `project_code + tower_id + batch_no`.
 3. Satu batch selalu mempunyai tepat satu register QC, ATP, dan FATP.
-4. File tidak ditempel atau ditautkan pada Excel; file dikelola lewat DMS dan Google Drive.
+4. File tidak ditempel atau ditautkan pada Excel; file dikelola lewat DMS dan storage server.
 5. Seed hanya membuat data yang belum ada. Menjalankan ulang container tidak mengembalikan status yang sudah diubah pengguna.
 6. Status dan tanggal baru harus diubah melalui aplikasi agar audit trail tetap lengkap.

@@ -7,7 +7,6 @@ from .models import (
     Document,
     DocumentComment,
     DocumentVersion,
-    GoogleDriveCredential,
     InstallationBatch,
     Notification,
     Project,
@@ -88,8 +87,3 @@ class ActivityLogAdmin(ImmutableAdmin):
     list_display = ("created_at", "actor", "action", "description", "ip_address")
     ordering = ("-created_at",)
 
-
-@admin.register(GoogleDriveCredential)
-class GoogleDriveCredentialAdmin(ImmutableAdmin):
-    list_display = ("google_email", "connected_by", "updated_at")
-    exclude = ("encrypted_token",)

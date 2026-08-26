@@ -10,11 +10,10 @@ from django.db import connection
 from django.utils import timezone
 
 from dms.models import BackupRecord, Notification, User
-from dms.services.google_drive import prune_drive_backups, upload_backup_file
 
 
 class Command(BaseCommand):
-    help = "Create an encrypted database backup and upload it to Google Drive."
+    help = "Create an encrypted database backup on local server storage."
 
     def handle(self, *args, **options):
         timestamp = timezone.localtime().strftime("%Y%m%d-%H%M%S")
@@ -30,18 +29,13 @@ class Command(BaseCommand):
             self._dump_database(raw_path)
             self._encrypt(raw_path, encrypted_path)
             raw_path.unlink(missing_ok=True)
-            result = upload_backup_file(encrypted_path, filename, monthly=monthly)
             record.status = BackupRecord.Status.SUCCESS
-            record.drive_file_id = result["id"]
+            record.storage_key = filename
             record.file_size = encrypted_path.stat().st_size
-            record.message = "Uploaded to Google Drive"
+            record.message = "Tersimpan terenkripsi di server"
             record.finished_at = timezone.now()
             record.save()
             self._prune_local(backup_dir)
-            prune_drive_backups(
-                settings.BACKUP_DRIVE_RETENTION_DAYS,
-                settings.BACKUP_DRIVE_MONTHLY_RETENTION_DAYS,
-            )
             self.stdout.write(self.style.SUCCESS(filename))
         except Exception as exc:
             raw_path.unlink(missing_ok=True)
@@ -91,7 +85,12 @@ class Command(BaseCommand):
         encrypted_path.write_bytes(cipher.encrypt(raw_path.read_bytes()))
 
     def _prune_local(self, backup_dir):
-        cutoff = timezone.now().timestamp() - settings.BACKUP_LOCAL_RETENTION_DAYS * 86400
+        now = timezone.now().timestamp()
         for path in backup_dir.glob("*.dump.fernet"):
-            if path.stat().st_mtime < cutoff:
+            retention_days = (
+                settings.BACKUP_MONTHLY_RETENTION_DAYS
+                if path.name.startswith("monthly-")
+                else settings.BACKUP_DAILY_RETENTION_DAYS
+            )
+            if path.stat().st_mtime < now - retention_days * 86400:
                 path.unlink(missing_ok=True)

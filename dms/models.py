@@ -180,7 +180,7 @@ class Document(models.Model):
 class DocumentVersion(models.Model):
     document = models.ForeignKey(Document, on_delete=models.CASCADE, related_name="versions")
     revision_no = models.PositiveSmallIntegerField()
-    drive_file_id = models.CharField(max_length=255, unique=True)
+    storage_key = models.CharField(max_length=500, unique=True)
     stored_filename = models.CharField(max_length=255)
     original_filename = models.CharField(max_length=255)
     mime_type = models.CharField(max_length=160)
@@ -261,19 +261,6 @@ class Notification(models.Model):
         ordering = ["-created_at"]
 
 
-class GoogleDriveCredential(models.Model):
-    connected_by = models.OneToOneField(User, on_delete=models.CASCADE, related_name="google_drive_credential")
-    encrypted_token = models.TextField()
-    google_email = models.EmailField(blank=True)
-    root_folder_id = models.CharField(max_length=255, blank=True)
-    backup_folder_id = models.CharField(max_length=255, blank=True)
-    connected_at = models.DateTimeField(auto_now_add=True)
-    updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self):
-        return f"Google Drive - {self.google_email or self.connected_by.username}"
-
-
 class BackupRecord(models.Model):
     class Status(models.TextChoices):
         RUNNING = "RUNNING", "Running"
@@ -282,7 +269,7 @@ class BackupRecord(models.Model):
 
     filename = models.CharField(max_length=255)
     status = models.CharField(max_length=16, choices=Status.choices, default=Status.RUNNING)
-    drive_file_id = models.CharField(max_length=255, blank=True)
+    storage_key = models.CharField(max_length=500, blank=True)
     file_size = models.PositiveBigIntegerField(default=0)
     message = models.TextField(blank=True)
     started_at = models.DateTimeField(default=timezone.now)

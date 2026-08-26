@@ -1,14 +1,18 @@
+import mimetypes
+import shutil
+from pathlib import Path
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import logout, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.views import LoginView
-from django.core.exceptions import ImproperlyConfigured, PermissionDenied
+from django.core.exceptions import PermissionDenied
 from django.core.management import call_command
 from django.db import transaction
-from django.db.models import Q
-from django.http import FileResponse, JsonResponse
+from django.db.models import Q, Sum
+from django.http import FileResponse, Http404, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -31,7 +35,6 @@ from .models import (
     Document,
     DocumentComment,
     DocumentVersion,
-    GoogleDriveCredential,
     InstallationBatch,
     Notification,
     Review,
@@ -39,12 +42,11 @@ from .models import (
     User,
 )
 from .services.audit import client_ip, log_activity
-from .services.google_drive import (
-    authorization_url,
+from .services.local_storage import (
     checksum_file,
-    complete_oauth,
-    download_drive_file,
-    upload_document_file,
+    delete_document_file,
+    open_document_file,
+    store_document_file,
 )
 from .services.notifications import notify_roles
 
@@ -59,6 +61,19 @@ UPLOADABLE_STATUSES = {
     Document.Status.REVISION_REQUIRED,
     Document.Status.REJECTED,
 }
+
+
+def _summarize_documents(documents):
+    statuses = {document.status for document in documents}
+    if not documents or statuses <= {Document.Status.NOT_STARTED, Document.Status.NOT_APPLICABLE}:
+        return {"code": Document.Status.NOT_STARTED, "label": "Not Started"}
+    if Document.Status.REVISION_REQUIRED in statuses or Document.Status.REJECTED in statuses:
+        return {"code": Document.Status.REVISION_REQUIRED, "label": "Perlu Revisi"}
+    if statuses <= {Document.Status.APPROVED, Document.Status.NOT_APPLICABLE}:
+        return {"code": Document.Status.APPROVED, "label": "Approved"}
+    if Document.Status.UNDER_REVIEW in statuses:
+        return {"code": Document.Status.UNDER_REVIEW, "label": "Under Review"}
+    return {"code": "IN_PROGRESS", "label": "In Progress"}
 
 
 def health(request):
@@ -211,7 +226,28 @@ def site_list(request):
         site.document_progress = (
             round(site.document_approved / site.document_total * 100) if site.document_total else 0
         )
-    return render(request, "sites.html", {"sites": sites})
+        site.document_summaries = []
+        for document_type, label in Document.Type.choices:
+            type_documents = [
+                document for document in site_documents if document.document_type == document_type
+            ]
+            site.document_summaries.append(
+                {"type": label, **_summarize_documents(type_documents)}
+            )
+        site.overall = _summarize_documents(site_documents)
+        if any(
+            batch.status == InstallationBatch.Status.PENDING_INSTALLATION
+            for batch in site.batches.all()
+        ) and site.document_progress == 0:
+            site.overall = {"code": "PENDING_INSTALLATION", "label": "Pending Instalasi"}
+        site.filter_status = {
+            Document.Status.APPROVED: "complete",
+            Document.Status.REVISION_REQUIRED: "revision",
+            Document.Status.UNDER_REVIEW: "review",
+            "PENDING_INSTALLATION": "pending",
+        }.get(site.overall["code"], "progress")
+    regions = sorted({site.region for site in sites})
+    return render(request, "sites.html", {"sites": sites, "regions": regions})
 
 
 @login_required
@@ -312,30 +348,35 @@ def document_upload(request, pk):
     latest_revision = document.versions.order_by("-revision_no").values_list("revision_no", flat=True).first()
     revision_no = 0 if latest_revision is None else latest_revision + 1
     try:
-        drive_result = upload_document_file(document, uploaded, revision_no)
+        storage_result = store_document_file(document, uploaded, revision_no)
     except Exception as exc:
-        messages.error(request, f"Upload ke Google Drive gagal: {exc}")
+        messages.error(request, f"File gagal disimpan ke server: {exc}")
         return redirect("document_detail", pk=pk)
 
-    with transaction.atomic():
-        version = DocumentVersion.objects.create(
-            document=document,
-            revision_no=revision_no,
-            original_filename=uploaded.name,
-            checksum_sha256=checksum,
-            change_summary=form.cleaned_data["change_summary"],
-            uploaded_by=request.user,
-            **drive_result,
-        )
-        if legacy_approved_without_file:
-            version.is_locked = True
-            version.save(update_fields=["is_locked"])
-            document.status = Document.Status.APPROVED
-            document.approved_at = document.approved_at or timezone.now()
-        else:
-            document.status = Document.Status.UPLOADED
-            document.approved_at = None
-        document.save(update_fields=["status", "approved_at", "updated_at"])
+    try:
+        with transaction.atomic():
+            version = DocumentVersion.objects.create(
+                document=document,
+                revision_no=revision_no,
+                original_filename=uploaded.name,
+                checksum_sha256=checksum,
+                change_summary=form.cleaned_data["change_summary"],
+                uploaded_by=request.user,
+                **storage_result,
+            )
+            if legacy_approved_without_file:
+                version.is_locked = True
+                version.save(update_fields=["is_locked"])
+                document.status = Document.Status.APPROVED
+                document.approved_at = document.approved_at or timezone.now()
+            else:
+                document.status = Document.Status.UPLOADED
+                document.approved_at = None
+            document.save(update_fields=["status", "approved_at", "updated_at"])
+    except Exception as exc:
+        delete_document_file(storage_result["storage_key"])
+        messages.error(request, f"Data versi dokumen gagal disimpan: {exc}")
+        return redirect("document_detail", pk=pk)
     log_activity(
         request,
         "DOCUMENT_UPLOADED",
@@ -472,15 +513,15 @@ def document_comment(request, pk):
 def document_file(request, version_pk, mode="download"):
     version = get_object_or_404(DocumentVersion.objects.select_related("document"), pk=version_pk)
     try:
-        handle = download_drive_file(version.drive_file_id)
+        handle = open_document_file(version.storage_key)
     except Exception as exc:
-        messages.error(request, f"File tidak dapat diambil dari Google Drive: {exc}")
+        messages.error(request, f"File tidak dapat diambil dari server: {exc}")
         return redirect("document_detail", pk=version.document_id)
     inline = mode == "preview" and version.mime_type in {"application/pdf", "image/jpeg", "image/png"}
     response = FileResponse(
         handle,
         as_attachment=not inline,
-        filename=version.stored_filename,
+        filename=version.original_filename,
         content_type=version.mime_type,
     )
     log_activity(
@@ -568,40 +609,35 @@ def user_update(request, pk):
     return redirect("user_management")
 
 
+def brand_logo(request):
+    logo_path = Path(settings.BRAND_LOGO_PATH)
+    if not logo_path.is_file():
+        raise Http404("Logo belum tersedia")
+    content_type = mimetypes.guess_type(logo_path.name)[0] or "image/png"
+    return FileResponse(logo_path.open("rb"), content_type=content_type)
+
+
 @role_required(User.Role.SUPER_ADMIN)
-def integrations(request):
-    credential = GoogleDriveCredential.objects.order_by("-updated_at").first()
-    oauth_ready = bool(
-        settings.GOOGLE_OAUTH_CLIENT_ID
-        and settings.GOOGLE_OAUTH_CLIENT_SECRET
-        and settings.GOOGLE_TOKEN_ENCRYPTION_KEY
-    )
+def storage_status(request):
+    storage_root = Path(settings.DOCUMENT_STORAGE_ROOT)
+    storage_root.mkdir(parents=True, exist_ok=True)
+    usage = shutil.disk_usage(storage_root)
+    document_bytes = DocumentVersion.objects.aggregate(total=Sum("file_size"))["total"] or 0
+    latest_backup = BackupRecord.objects.filter(status=BackupRecord.Status.SUCCESS).first()
     return render(
         request,
-        "integrations.html",
-        {"credential": credential, "oauth_ready": oauth_ready, "redirect_uri": settings.GOOGLE_OAUTH_REDIRECT_URI},
+        "storage.html",
+        {
+            "storage_path": settings.DOCUMENT_STORAGE_DISPLAY_PATH,
+            "document_count": DocumentVersion.objects.count(),
+            "document_bytes": document_bytes,
+            "disk_total": usage.total,
+            "disk_used": usage.used,
+            "disk_free": usage.free,
+            "disk_percent": round(usage.used / usage.total * 100) if usage.total else 0,
+            "latest_backup": latest_backup,
+        },
     )
-
-
-@role_required(User.Role.SUPER_ADMIN)
-def google_drive_connect(request):
-    try:
-        return redirect(authorization_url(request))
-    except ImproperlyConfigured as exc:
-        messages.error(request, str(exc))
-        return redirect("integrations")
-
-
-@role_required(User.Role.SUPER_ADMIN)
-def google_drive_callback(request):
-    try:
-        record = complete_oauth(request, request.build_absolute_uri())
-    except Exception as exc:
-        messages.error(request, f"Koneksi Google Drive gagal: {exc}")
-        return redirect("integrations")
-    log_activity(request, "GOOGLE_DRIVE_CONNECTED", record, f"Google Drive {record.google_email} terhubung")
-    messages.success(request, "Google Drive berhasil dihubungkan.")
-    return redirect("integrations")
 
 
 @role_required(User.Role.SUPER_ADMIN)

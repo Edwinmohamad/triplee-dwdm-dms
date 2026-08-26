@@ -2,7 +2,6 @@
 {% load dms_tags %}
 {% block page_title %}Database Backup{% endblock %}
 {% block content %}
-<div class="section-heading page-heading"><div><p class="eyebrow">DISASTER RECOVERY</p><h3>Backup terenkripsi</h3><p>Harian pukul 02.00 WIB · 7 hari lokal · 30 hari Google Drive.</p></div><form method="post" action="{% url 'backup_run' %}">{% csrf_token %}<button class="button primary" type="submit">Jalankan backup sekarang</button></form></div>
+<div class="section-heading page-heading"><div><p class="eyebrow">LOCAL RECOVERY</p><h3>Backup database terenkripsi</h3><p>Harian pukul 02.00 WIB · harian disimpan 30 hari · bulanan disimpan 365 hari di server.</p></div><form method="post" action="{% url 'backup_run' %}">{% csrf_token %}<button class="button primary" type="submit">Jalankan backup sekarang</button></form></div>
 <div class="panel table-panel"><div class="table-wrap"><table><thead><tr><th>Waktu</th><th>File</th><th>Status</th><th>Ukuran</th><th>Pesan</th></tr></thead><tbody>{% for backup in backups %}<tr><td>{{ backup.started_at|date:'d M Y, H:i' }}</td><td>{{ backup.filename }}</td><td><span class="badge {% if backup.status == 'SUCCESS' %}success{% elif backup.status == 'FAILED' %}danger{% else %}warning{% endif %}">{{ backup.get_status_display }}</span></td><td>{{ backup.file_size|file_size }}</td><td>{{ backup.message|default:'—' }}</td></tr>{% empty %}<tr><td colspan="5">Belum ada backup dijalankan.</td></tr>{% endfor %}</tbody></table></div></div>
 {% endblock %}
-

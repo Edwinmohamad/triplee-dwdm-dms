@@ -12,6 +12,7 @@ def status_class(value):
         "DOCUMENT_PREPARATION": "info",
         "UNDER_REVIEW": "warning",
         "UPLOADED": "info",
+        "IN_PROGRESS": "info",
         "DRAFT": "neutral",
         "REVISION_REQUIRED": "danger",
         "REJECTED": "danger",
@@ -31,4 +32,3 @@ def file_size(value):
         if size < 1024 or unit == "GB":
             return f"{size:.0f} {unit}" if unit == "B" else f"{size:.1f} {unit}"
         size /= 1024
-

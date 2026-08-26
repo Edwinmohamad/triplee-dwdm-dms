@@ -12,7 +12,7 @@
 <div class="app-shell">
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <span class="brand-mark small">3E</span>
+            <span class="brand-logo-wrap small"><span class="brand-mark small">3E</span><img src="{% url 'brand_logo' %}" alt="Logo Triple E" onerror="this.hidden=true"></span>
             <span><strong>Triple E</strong><small>Document Control</small></span>
         </div>
         <nav class="nav-list" aria-label="Navigasi utama">
@@ -25,7 +25,7 @@
                 <a href="{% url 'audit_log' %}" class="{% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}"><span>≡</span> Audit Log</a>
             {% endif %}
             {% if request.user.role == 'SUPER_ADMIN' %}
-                <a href="{% url 'integrations' %}" class="{% if request.resolver_match.url_name == 'integrations' %}active{% endif %}"><span>↗</span> Google Drive <i class="connection-dot {% if drive_connected %}online{% endif %}"></i></a>
+                <a href="{% url 'storage_status' %}" class="{% if request.resolver_match.url_name == 'storage_status' or request.resolver_match.url_name == 'integrations' %}active{% endif %}"><span>▤</span> Storage Server</a>
                 <a href="{% url 'backup_status' %}" class="{% if request.resolver_match.url_name == 'backup_status' %}active{% endif %}"><span>↻</span> Backup</a>
             {% endif %}
         </nav>

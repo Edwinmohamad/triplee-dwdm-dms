@@ -17,6 +17,7 @@ COPY . .
 RUN DJANGO_DEBUG=true DJANGO_SECRET_KEY=build-only-secret python manage.py collectstatic --noinput \
     && chmod +x /app/entrypoint.sh \
     && useradd --create-home --uid 1000 appuser \
+    && mkdir -p /app/branding /app/documents /app/backups \
     && chown -R appuser:appuser /app
 
 USER appuser
