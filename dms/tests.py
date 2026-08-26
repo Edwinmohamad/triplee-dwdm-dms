@@ -8,7 +8,15 @@ from django.core.management import call_command
 from django.test import TestCase, override_settings
 from django.urls import reverse
 
-from .models import Document, DocumentVersion, InstallationBatch, Review, Site, User
+from .models import (
+    Document,
+    DocumentAttachment,
+    DocumentVersion,
+    InstallationBatch,
+    Review,
+    Site,
+    User,
+)
 from .services.local_storage import open_document_file, store_document_file
 
 
@@ -35,6 +43,10 @@ class LocalStorageTests(TestCase):
             self.assertTrue(stored_path.is_file())
             self.assertIn("BATCH-", result["storage_key"])
             self.assertIn("REV-000", result["storage_key"])
+            self.assertIn(
+                self.document.batch.site.name.replace(" ", "-"),
+                result["stored_filename"],
+            )
             self.assertEqual(stored_path.read_bytes(), b"test document")
 
     def test_storage_key_cannot_escape_document_root(self):
@@ -148,8 +160,26 @@ class WorkflowTests(TestCase):
         self.assertContains(response, "16")
         self.assertContains(response, "18")
 
-    def test_nokia_reviewer_can_approve(self):
+    def test_nokia_reviewer_cannot_make_decision(self):
         self.client.force_login(self.reviewer)
+        response = self.client.post(
+            reverse("document_review", args=[self.document.pk]),
+            {"decision": Review.Decision.APPROVED, "comment": "Dokumen sesuai."},
+        )
+        self.assertEqual(response.status_code, 403)
+        self.document.refresh_from_db()
+        self.assertEqual(self.document.status, Document.Status.UNDER_REVIEW)
+        self.assertFalse(self.document.reviews.exists())
+
+    def test_nokia_page_has_comment_but_no_decision_form(self):
+        self.client.force_login(self.reviewer)
+        response = self.client.get(reverse("document_detail", args=[self.document.pk]))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Kirim komentar")
+        self.assertNotContains(response, "Simpan keputusan")
+
+    def test_superadmin_can_record_internal_decision(self):
+        self.client.force_login(self.admin)
         response = self.client.post(
             reverse("document_review", args=[self.document.pk]),
             {"decision": Review.Decision.APPROVED, "comment": "Dokumen sesuai."},
@@ -158,6 +188,17 @@ class WorkflowTests(TestCase):
         self.document.refresh_from_db()
         self.assertEqual(self.document.status, Document.Status.APPROVED)
         self.assertTrue(self.document.reviews.filter(decision=Review.Decision.APPROVED).exists())
+
+    def test_nokia_reviewer_can_add_comment(self):
+        self.client.force_login(self.reviewer)
+        response = self.client.post(
+            reverse("document_comment", args=[self.document.pk]),
+            {"body": "Mohon periksa kembali foto koneksi power."},
+        )
+        self.assertEqual(response.status_code, 302)
+        self.assertTrue(
+            self.document.comments.filter(author=self.reviewer).exists()
+        )
 
     def test_reviewer_cannot_upload(self):
         self.client.force_login(self.reviewer)
@@ -199,7 +240,7 @@ class WorkflowTests(TestCase):
         response = self.client.post(
             reverse("document_upload", args=[historical.pk]),
             {
-                "file": SimpleUploadedFile(
+                "files": SimpleUploadedFile(
                     "historical-atp.pdf",
                     b"test content",
                     content_type="application/pdf",
@@ -213,7 +254,71 @@ class WorkflowTests(TestCase):
         version = historical.versions.get()
         self.assertEqual(historical.status, Document.Status.UNDER_REVIEW)
         self.assertTrue(version.is_locked)
+        self.assertEqual(version.attachments.count(), 1)
         upload_mock.assert_called_once()
+
+    @patch("dms.views.store_document_file")
+    def test_qc_accepts_multiple_files_and_appends_before_submit(self, upload_mock):
+        qc_document = Document.objects.filter(
+            document_type=Document.Type.QC,
+            status=Document.Status.NOT_STARTED,
+            batch__status=InstallationBatch.Status.INSTALLED,
+        ).first()
+        upload_mock.side_effect = [
+            {
+                "storage_key": "NOKIA-DWDM/qc-r0-f1.pdf",
+                "stored_filename": "qc-r0-f1.pdf",
+                "mime_type": "application/pdf",
+                "file_size": 11,
+            },
+            {
+                "storage_key": "NOKIA-DWDM/qc-r0-f2.jpg",
+                "stored_filename": "qc-r0-f2.jpg",
+                "mime_type": "image/jpeg",
+                "file_size": 12,
+            },
+        ]
+        self.client.force_login(self.admin)
+        response = self.client.post(
+            reverse("document_upload", args=[qc_document.pk]),
+            {
+                "files": [
+                    SimpleUploadedFile("power.pdf", b"power file", "application/pdf"),
+                    SimpleUploadedFile("rack.jpg", b"rack image", "image/jpeg"),
+                ],
+                "change_summary": "QC perangkat dan power",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        qc_document.refresh_from_db()
+        version = qc_document.versions.get()
+        self.assertEqual(version.revision_no, 0)
+        self.assertEqual(version.attachments.count(), 2)
+        self.assertEqual(qc_document.status, Document.Status.UPLOADED)
+
+        upload_mock.side_effect = None
+        upload_mock.return_value = {
+            "storage_key": "NOKIA-DWDM/qc-r0-f3.png",
+            "stored_filename": "qc-r0-f3.png",
+            "mime_type": "image/png",
+            "file_size": 13,
+        }
+        response = self.client.post(
+            reverse("document_upload", args=[qc_document.pk]),
+            {
+                "files": SimpleUploadedFile(
+                    "alarm.png",
+                    b"alarm image",
+                    "image/png",
+                ),
+                "change_summary": "Tambah capture alarm",
+            },
+        )
+        self.assertEqual(response.status_code, 302)
+        version.refresh_from_db()
+        self.assertEqual(qc_document.versions.count(), 1)
+        self.assertEqual(version.attachments.count(), 3)
+        self.assertEqual(version.file_size, 36)
 
     def test_revision_required_must_upload_a_new_version_before_submit(self):
         self.document.status = Document.Status.REVISION_REQUIRED
@@ -233,3 +338,47 @@ class WorkflowTests(TestCase):
         response = self.client.get(reverse("document_download", args=[self.version.pk]))
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response["Content-Disposition"], 'attachment; filename="test.pdf"')
+
+    @patch("dms.views.open_document_file")
+    def test_nokia_can_download_all_revision_attachments_as_zip(self, download_mock):
+        import io
+        import zipfile
+
+        DocumentAttachment.objects.create(
+            version=self.version,
+            sequence_no=1,
+            storage_key="DWDM/test.pdf",
+            stored_filename="site-qc-f01.pdf",
+            original_filename="power.pdf",
+            mime_type="application/pdf",
+            file_size=5,
+            checksum_sha256="b" * 64,
+        )
+        DocumentAttachment.objects.create(
+            version=self.version,
+            sequence_no=2,
+            storage_key="DWDM/test-2.jpg",
+            stored_filename="site-qc-f02.jpg",
+            original_filename="rack.jpg",
+            mime_type="image/jpeg",
+            file_size=4,
+            checksum_sha256="c" * 64,
+        )
+        payloads = {
+            "DWDM/test.pdf": b"power",
+            "DWDM/test-2.jpg": b"rack",
+        }
+        download_mock.side_effect = lambda storage_key: io.BytesIO(payloads[storage_key])
+        self.client.force_login(self.reviewer)
+
+        response = self.client.get(
+            reverse("version_download_all", args=[self.version.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        archive_bytes = b"".join(response.streaming_content)
+        with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+            self.assertEqual(
+                archive.namelist(),
+                ["site-qc-f01.pdf", "site-qc-f02.jpg"],
+            )

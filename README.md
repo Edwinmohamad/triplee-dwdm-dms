@@ -9,8 +9,9 @@ Dashboard dan Document Management System untuk monitoring QC, ATP, dan FATP proy
 - Data PO, harga, expected value, SOW, dan equipment tidak disimpan.
 - Upload file ke storage lokal server CasaOS.
 - Preview dan download melalui DMS tanpa public file link.
-- Revision history Rev 0, Rev 1, dan seterusnya.
-- Review Nokia: Approve, Request Revision, Reject, dan komentar.
+- Revision history Rev 0, Rev 1, dan seterusnya; satu revisi QC dapat memuat beberapa file.
+- Nokia dapat view, preview/download, dan memberi komentar tanpa akses keputusan status.
+- Keputusan Approve, Request Revision, atau Reject hanya dapat dicatat oleh Super Admin.
 - Role: Super Admin, Triple E Admin, Triple E Engineer, Nokia Reviewer, Nokia Viewer.
 - In-app notifications dan audit trail.
 - Backup PostgreSQL terenkripsi pada storage server.

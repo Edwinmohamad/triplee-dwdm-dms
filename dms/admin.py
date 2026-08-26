@@ -5,6 +5,7 @@ from .models import (
     ActivityLog,
     BackupRecord,
     Document,
+    DocumentAttachment,
     DocumentComment,
     DocumentVersion,
     InstallationBatch,
@@ -72,6 +73,11 @@ class DocumentVersionAdmin(ImmutableAdmin):
     list_display = ("document", "revision_no", "uploaded_by", "uploaded_at", "is_locked")
 
 
+@admin.register(DocumentAttachment)
+class DocumentAttachmentAdmin(ImmutableAdmin):
+    list_display = ("version", "sequence_no", "original_filename", "file_size", "created_at")
+
+
 @admin.register(Review)
 class ReviewAdmin(ImmutableAdmin):
     list_display = ("document", "version", "reviewer", "decision", "created_at")
@@ -86,4 +92,3 @@ class DocumentCommentAdmin(ImmutableAdmin):
 class ActivityLogAdmin(ImmutableAdmin):
     list_display = ("created_at", "actor", "action", "description", "ip_address")
     ordering = ("-created_at",)
-

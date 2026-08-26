@@ -8,9 +8,9 @@ from django.core.exceptions import SuspiciousFileOperation
 from django.utils import timezone
 
 
-def _clean_component(value, fallback="item"):
+def _clean_component(value, fallback="item", max_length=100):
     compact = re.sub(r"[^A-Za-z0-9._-]+", "-", str(value).strip())
-    return compact.strip("-_.")[:100] or fallback
+    return compact.strip("-_.")[:max_length] or fallback
 
 
 def _storage_root():
@@ -38,22 +38,36 @@ def checksum_file(uploaded_file):
     return digest.hexdigest()
 
 
-def document_filename(document, revision_no, original_filename):
+def document_filename(document, revision_no, original_filename, attachment_no=1):
     extension = Path(original_filename).suffix.lower()
+    original_stem = _clean_component(Path(original_filename).stem, "file")[:45]
+    site_name = _clean_component(
+        document.batch.site.name.replace(".", " "),
+        "site",
+        max_length=70,
+    )
     date = timezone.localdate().strftime("%Y%m%d")
     base = _clean_component(
-        f"{document.batch.site.tower_id}_BATCH-{document.batch.batch_no:02d}_"
-        f"{document.document_type}_REV-{revision_no:03d}_{date}",
+        f"{site_name}_{document.batch.site.tower_id}_"
+        f"B{document.batch.batch_no:02d}_{document.document_type}_"
+        f"R{revision_no:03d}_F{attachment_no:02d}_"
+        f"{original_stem}_{date}",
         "document",
+        max_length=220,
     )
     return f"{base}{extension}"
 
 
-def store_document_file(document, uploaded_file, revision_no):
+def store_document_file(document, uploaded_file, revision_no, attachment_no=1):
     project = document.batch.site.project
     site = document.batch.site
     batch = document.batch
-    stored_filename = document_filename(document, revision_no, uploaded_file.name)
+    stored_filename = document_filename(
+        document,
+        revision_no,
+        uploaded_file.name,
+        attachment_no,
+    )
     storage_key = Path(
         _clean_component(project.code, "project"),
         _clean_component(f"{site.tower_id}_{site.name}", "site"),
@@ -88,4 +102,3 @@ def open_document_file(storage_key):
 def delete_document_file(storage_key):
     target = _resolve_storage_key(storage_key)
     target.unlink(missing_ok=True)
-

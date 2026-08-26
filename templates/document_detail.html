@@ -15,10 +15,23 @@
             <div class="section-heading"><div><p class="eyebrow">VERSION HISTORY</p><h3>Riwayat dokumen</h3></div>{% if document.versions.count %}<span>{{ document.versions.count }} versi</span>{% endif %}</div>
             <div class="version-list">
             {% for version in document.versions.all %}
-                <article class="version-row">
-                    <span class="version-badge">R{{ version.revision_no }}</span>
-                    <div class="version-info"><strong>{{ version.stored_filename }}</strong><p>{{ version.file_size|file_size }} · {{ version.uploaded_by }} · {{ version.uploaded_at|date:'d M Y, H:i' }}</p>{% if version.change_summary %}<small>{{ version.change_summary }}</small>{% endif %}</div>
-                    <div class="version-actions"><a class="button ghost small" href="{% url 'document_preview' version.pk %}" target="_blank">Preview</a><a class="button secondary small" href="{% url 'document_download' version.pk %}">Download</a></div>
+                <article class="version-package">
+                    <header class="version-package-head">
+                        <span class="version-badge">R{{ version.revision_no }}</span>
+                        <div class="version-info"><strong>{{ document.document_type }} Rev {{ version.revision_no }}</strong><p>{{ version.attachments.count }} file · {{ version.file_size|file_size }} · {{ version.uploaded_by }} · {{ version.uploaded_at|date:'d M Y, H:i' }}</p>{% if version.change_summary %}<small>{{ version.change_summary|linebreaksbr }}</small>{% endif %}</div>
+                        {% if version.attachments.count > 1 %}<a class="button secondary small" href="{% url 'version_download_all' version.pk %}">Download ZIP</a>{% endif %}
+                    </header>
+                    <div class="attachment-list">
+                    {% for attachment in version.attachments.all %}
+                        <div class="attachment-row">
+                            <span class="attachment-number">{{ attachment.sequence_no|stringformat:'02d' }}</span>
+                            <div><strong>{{ attachment.stored_filename }}</strong><small>File asli: {{ attachment.original_filename }} · {{ attachment.file_size|file_size }}{% if attachment.description %} · {{ attachment.description }}{% endif %}</small></div>
+                            <div class="version-actions"><a class="button ghost small" href="{% url 'attachment_preview' attachment.pk %}" target="_blank">Preview</a><a class="button secondary small" href="{% url 'attachment_download' attachment.pk %}">Download</a></div>
+                        </div>
+                    {% empty %}
+                        <div class="attachment-row"><span class="attachment-number">01</span><div><strong>{{ version.stored_filename }}</strong><small>File asli: {{ version.original_filename }} · {{ version.file_size|file_size }}</small></div><div class="version-actions"><a class="button ghost small" href="{% url 'document_preview' version.pk %}" target="_blank">Preview</a><a class="button secondary small" href="{% url 'document_download' version.pk %}">Download</a></div></div>
+                    {% endfor %}
+                    </div>
                 </article>
             {% empty %}<div class="empty-state"><span class="doc-token">{{ document.document_type }}</span><strong>Belum ada file</strong><p>Dokumen akan muncul setelah diunggah oleh tim Triple E.</p></div>{% endfor %}
             </div>
@@ -35,7 +48,7 @@
         </section>
 
         <section class="panel">
-            <div class="section-heading"><div><p class="eyebrow">REVIEW HISTORY</p><h3>Keputusan Nokia</h3></div></div>
+            <div class="section-heading"><div><p class="eyebrow">REVIEW HISTORY</p><h3>Keputusan internal</h3></div></div>
             <div class="review-list">
                 {% for review in document.reviews.all %}
                 <article><span class="status-dot {{ review.decision|status_class }}"></span><div><strong>{{ review.get_decision_display }} · Rev {{ review.version.revision_no }}</strong><p>{{ review.reviewer }} · {{ review.created_at|date:'d M Y, H:i' }}</p>{% if review.comment %}<blockquote>{{ review.comment }}</blockquote>{% endif %}</div></article>
@@ -47,17 +60,18 @@
     <aside class="document-actions-column">
         {% if can_upload %}
         <section class="panel sticky-panel">
-            <p class="eyebrow">TRIPLE E ACTION</p><h3>Upload revisi</h3>
+            <p class="eyebrow">TRIPLE E ACTION</p><h3>{% if document.document_type == 'QC' %}Upload file QC{% else %}Upload revisi{% endif %}</h3>
             <p class="muted upload-hint">File tersimpan di storage server Triple E dan tetap dapat diunduh oleh Nokia.</p>
+            {% if document.document_type == 'QC' %}<div class="multi-file-note"><strong>Multi-file QC</strong><span>Pilih beberapa file sekaligus. Selama belum disubmit, upload berikutnya ditambahkan ke revisi QC yang sama.</span></div>{% endif %}
             {% if historical_status_without_file %}<div class="inline-warning">Status berasal dari tracker lama, tetapi file historis belum tersedia. Upload pertama akan mempertahankan status <strong>{{ document.get_status_display }}</strong>.</div>{% endif %}
-            <form method="post" enctype="multipart/form-data" action="{% url 'document_upload' document.pk %}" class="stack-form">{% csrf_token %}{{ upload_form.as_p }}<button class="button primary full" type="submit" {% if not can_upload_file %}disabled{% endif %}>Upload ke Server</button></form>
+            <form method="post" enctype="multipart/form-data" action="{% url 'document_upload' document.pk %}" class="stack-form">{% csrf_token %}{{ upload_form.as_p }}<button class="button primary full" type="submit" {% if not can_upload_file %}disabled{% endif %}>{% if document.document_type == 'QC' %}Upload File QC{% else %}Upload ke Server{% endif %}</button></form>
             {% if can_submit %}<form method="post" action="{% url 'document_submit' document.pk %}" class="top-gap">{% csrf_token %}<button class="button success full" type="submit">Submit ke Nokia</button></form>{% endif %}
         </section>
         {% endif %}
 
         {% if can_review and document.status == 'UNDER_REVIEW' %}
         <section class="panel">
-            <p class="eyebrow">NOKIA REVIEW</p><h3>Beri keputusan</h3>
+            <p class="eyebrow">SUPER ADMIN</p><h3>Keputusan internal</h3>
             <form method="post" action="{% url 'document_review' document.pk %}" class="stack-form">{% csrf_token %}{{ review_form.as_p }}<button class="button primary full" type="submit">Simpan keputusan</button></form>
         </section>
         {% endif %}

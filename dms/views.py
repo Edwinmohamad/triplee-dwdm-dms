@@ -1,6 +1,8 @@
 import mimetypes
 import shutil
+import zipfile
 from pathlib import Path
+from tempfile import SpooledTemporaryFile
 
 from django.conf import settings
 from django.contrib import messages
@@ -33,6 +35,7 @@ from .models import (
     ActivityLog,
     BackupRecord,
     Document,
+    DocumentAttachment,
     DocumentComment,
     DocumentVersion,
     InstallationBatch,
@@ -53,7 +56,7 @@ from .services.notifications import notify_roles
 
 ADMIN_ROLES = {User.Role.SUPER_ADMIN, User.Role.TRIPLEE_ADMIN}
 UPLOAD_ROLES = {User.Role.SUPER_ADMIN, User.Role.TRIPLEE_ADMIN, User.Role.TRIPLEE_ENGINEER}
-REVIEW_ROLES = {User.Role.SUPER_ADMIN, User.Role.NOKIA_REVIEWER}
+REVIEW_ROLES = {User.Role.SUPER_ADMIN}
 UPLOADABLE_STATUSES = {
     Document.Status.NOT_STARTED,
     Document.Status.DRAFT,
@@ -287,7 +290,10 @@ def batch_update(request, pk):
 def document_detail(request, pk):
     document = get_object_or_404(
         Document.objects.select_related("batch__site__project").prefetch_related(
-            "versions__uploaded_by", "reviews__reviewer", "comments__author"
+            "versions__uploaded_by",
+            "versions__attachments",
+            "reviews__reviewer",
+            "comments__author",
         ),
         pk=pk,
     )
@@ -301,7 +307,9 @@ def document_detail(request, pk):
         "document_detail.html",
         {
             "document": document,
-            "upload_form": DocumentUploadForm(),
+            "upload_form": DocumentUploadForm(
+                allow_multiple=document.document_type == Document.Type.QC
+            ),
             "review_form": ReviewForm(),
             "comment_form": CommentForm(),
             "can_upload": request.user.role in UPLOAD_ROLES,
@@ -330,7 +338,11 @@ def document_detail(request, pk):
 @require_POST
 def document_upload(request, pk):
     document = get_object_or_404(Document.objects.select_related("batch__site"), pk=pk)
-    form = DocumentUploadForm(request.POST, request.FILES)
+    form = DocumentUploadForm(
+        request.POST,
+        request.FILES,
+        allow_multiple=document.document_type == Document.Type.QC,
+    )
     if document.batch.status == InstallationBatch.Status.PENDING_INSTALLATION:
         messages.error(request, "Dokumen belum dapat diunggah karena instalasi masih pending.")
         return redirect("document_detail", pk=pk)
@@ -351,31 +363,105 @@ def document_upload(request, pk):
                 messages.error(request, error)
         return redirect("document_detail", pk=pk)
 
-    uploaded = form.cleaned_data["file"]
-    checksum = checksum_file(uploaded)
-    if document.versions.filter(checksum_sha256=checksum).exists():
-        messages.error(request, "File yang sama sudah pernah diunggah pada dokumen ini.")
-        return redirect("document_detail", pk=pk)
-    latest_revision = document.versions.order_by("-revision_no").values_list("revision_no", flat=True).first()
-    revision_no = 0 if latest_revision is None else latest_revision + 1
+    uploads = form.cleaned_data["files"]
+    upload_items = []
+    seen_checksums = set()
+    for uploaded in uploads:
+        checksum = checksum_file(uploaded)
+        duplicate_exists = document.versions.filter(
+            Q(checksum_sha256=checksum) | Q(attachments__checksum_sha256=checksum)
+        ).exists()
+        if checksum in seen_checksums or duplicate_exists:
+            messages.error(
+                request,
+                f"File {uploaded.name} sama dengan file yang sudah dipilih atau pernah diunggah.",
+            )
+            return redirect("document_detail", pk=pk)
+        seen_checksums.add(checksum)
+        upload_items.append((uploaded, checksum))
+
+    latest_version = document.latest_version
+    append_to_latest = bool(
+        latest_version
+        and not latest_version.is_locked
+        and document.status in {Document.Status.UPLOADED, Document.Status.DRAFT}
+    )
+    if append_to_latest:
+        version = latest_version
+        revision_no = version.revision_no
+        first_sequence = version.attachments.count() + 1
+    else:
+        latest_revision = (
+            document.versions.order_by("-revision_no")
+            .values_list("revision_no", flat=True)
+            .first()
+        )
+        revision_no = 0 if latest_revision is None else latest_revision + 1
+        first_sequence = 1
+
+    stored_items = []
     try:
-        storage_result = store_document_file(document, uploaded, revision_no)
+        for offset, (uploaded, checksum) in enumerate(upload_items):
+            sequence_no = first_sequence + offset
+            storage_result = store_document_file(
+                document,
+                uploaded,
+                revision_no,
+                attachment_no=sequence_no,
+            )
+            stored_items.append(
+                {
+                    "uploaded": uploaded,
+                    "checksum": checksum,
+                    "sequence_no": sequence_no,
+                    "storage": storage_result,
+                }
+            )
     except Exception as exc:
+        for item in stored_items:
+            delete_document_file(item["storage"]["storage_key"])
         messages.error(request, f"File gagal disimpan ke server: {exc}")
         return redirect("document_detail", pk=pk)
 
     try:
         with transaction.atomic():
-            version = DocumentVersion.objects.create(
-                document=document,
-                revision_no=revision_no,
-                original_filename=uploaded.name,
-                checksum_sha256=checksum,
-                change_summary=form.cleaned_data["change_summary"],
-                uploaded_by=request.user,
-                **storage_result,
-            )
-            if historical_status:
+            if not append_to_latest:
+                primary = stored_items[0]
+                version = DocumentVersion.objects.create(
+                    document=document,
+                    revision_no=revision_no,
+                    storage_key=primary["storage"]["storage_key"],
+                    stored_filename=primary["storage"]["stored_filename"],
+                    original_filename=primary["uploaded"].name,
+                    mime_type=primary["storage"]["mime_type"],
+                    file_size=sum(item["storage"]["file_size"] for item in stored_items),
+                    checksum_sha256=primary["checksum"],
+                    change_summary=form.cleaned_data["change_summary"],
+                    uploaded_by=request.user,
+                )
+            for item in stored_items:
+                DocumentAttachment.objects.create(
+                    version=version,
+                    sequence_no=item["sequence_no"],
+                    storage_key=item["storage"]["storage_key"],
+                    stored_filename=item["storage"]["stored_filename"],
+                    original_filename=item["uploaded"].name,
+                    mime_type=item["storage"]["mime_type"],
+                    file_size=item["storage"]["file_size"],
+                    checksum_sha256=item["checksum"],
+                )
+
+            if append_to_latest:
+                version.file_size = version.attachments.aggregate(total=Sum("file_size"))["total"] or 0
+                new_summary = form.cleaned_data["change_summary"].strip()
+                if new_summary:
+                    version.change_summary = "\n".join(
+                        value for value in [version.change_summary, new_summary] if value
+                    )
+                version.save(update_fields=["file_size", "change_summary"])
+                document.status = Document.Status.UPLOADED
+                document.approved_at = None
+            elif historical_status:
                 version.is_locked = True
                 version.save(update_fields=["is_locked"])
                 document.status = historical_status
@@ -391,17 +477,28 @@ def document_upload(request, pk):
                 update_fields=["status", "submitted_at", "approved_at", "updated_at"]
             )
     except Exception as exc:
-        delete_document_file(storage_result["storage_key"])
+        for item in stored_items:
+            delete_document_file(item["storage"]["storage_key"])
         messages.error(request, f"Data versi dokumen gagal disimpan: {exc}")
         return redirect("document_detail", pk=pk)
     log_activity(
         request,
         "DOCUMENT_UPLOADED",
         version,
-        f"{document.document_type} Rev {revision_no} diunggah",
-        {"document_id": document.pk, "revision": revision_no, "checksum": checksum},
+        f"{len(stored_items)} file ditambahkan ke {document.document_type} Rev {revision_no}",
+        {
+            "document_id": document.pk,
+            "revision": revision_no,
+            "file_count": len(stored_items),
+            "appended": append_to_latest,
+            "checksums": [item["checksum"] for item in stored_items],
+        },
     )
-    messages.success(request, f"Dokumen berhasil diunggah sebagai Rev {revision_no}.")
+    action_label = "ditambahkan ke" if append_to_latest else "diunggah sebagai"
+    messages.success(
+        request,
+        f"{len(stored_items)} file berhasil {action_label} Rev {revision_no}.",
+    )
     return redirect("document_detail", pk=pk)
 
 
@@ -526,28 +623,103 @@ def document_comment(request, pk):
     return redirect("document_detail", pk=pk)
 
 
-@login_required
-def document_file(request, version_pk, mode="download"):
-    version = get_object_or_404(DocumentVersion.objects.select_related("document"), pk=version_pk)
+def _stored_file_response(request, entity, document_id, mode="download"):
     try:
-        handle = open_document_file(version.storage_key)
+        handle = open_document_file(entity.storage_key)
     except Exception as exc:
         messages.error(request, f"File tidak dapat diambil dari server: {exc}")
-        return redirect("document_detail", pk=version.document_id)
-    inline = mode == "preview" and version.mime_type in {"application/pdf", "image/jpeg", "image/png"}
+        return redirect("document_detail", pk=document_id)
+    inline = mode == "preview" and entity.mime_type in {
+        "application/pdf",
+        "image/jpeg",
+        "image/png",
+    }
     response = FileResponse(
         handle,
         as_attachment=not inline,
-        filename=version.original_filename,
-        content_type=version.mime_type,
+        filename=entity.stored_filename,
+        content_type=entity.mime_type,
     )
     log_activity(
         request,
         "DOCUMENT_PREVIEWED" if inline else "DOCUMENT_DOWNLOADED",
-        version,
-        f"{version} {'dipreview' if inline else 'diunduh'}",
+        entity,
+        f"{entity} {'dipreview' if inline else 'diunduh'}",
     )
     return response
+
+
+@login_required
+def attachment_file(request, attachment_pk, mode="download"):
+    attachment = get_object_or_404(
+        DocumentAttachment.objects.select_related("version__document"),
+        pk=attachment_pk,
+    )
+    return _stored_file_response(
+        request,
+        attachment,
+        attachment.version.document_id,
+        mode,
+    )
+
+
+@login_required
+def document_file(request, version_pk, mode="download"):
+    version = get_object_or_404(
+        DocumentVersion.objects.select_related("document").prefetch_related("attachments"),
+        pk=version_pk,
+    )
+    attachment = version.attachments.first()
+    if attachment:
+        return _stored_file_response(request, attachment, version.document_id, mode)
+    return _stored_file_response(request, version, version.document_id, mode)
+
+
+@login_required
+def version_download_all(request, version_pk):
+    version = get_object_or_404(
+        DocumentVersion.objects.select_related("document__batch__site").prefetch_related(
+            "attachments"
+        ),
+        pk=version_pk,
+    )
+    attachments = list(version.attachments.all())
+    if not attachments:
+        return document_file(request, version_pk, mode="download")
+
+    bundle = SpooledTemporaryFile(max_size=16 * 1024 * 1024, mode="w+b")
+    try:
+        with zipfile.ZipFile(bundle, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            for attachment in attachments:
+                archive_name = Path(
+                    attachment.stored_filename.replace("\\", "/")
+                ).name
+                with open_document_file(attachment.storage_key) as source:
+                    with archive.open(archive_name, "w") as target:
+                        shutil.copyfileobj(source, target, length=1024 * 1024)
+        bundle.seek(0)
+    except Exception as exc:
+        bundle.close()
+        messages.error(request, f"Paket ZIP tidak dapat dibuat: {exc}")
+        return redirect("document_detail", pk=version.document_id)
+
+    site = version.document.batch.site
+    filename = (
+        f"{site.tower_id}_BATCH-{version.document.batch.batch_no:02d}_"
+        f"{version.document.document_type}_REV-{version.revision_no:03d}.zip"
+    )
+    log_activity(
+        request,
+        "DOCUMENT_BUNDLE_DOWNLOADED",
+        version,
+        f"{version} diunduh sebagai ZIP ({len(attachments)} file)",
+    )
+    return FileResponse(
+        bundle,
+        as_attachment=True,
+        filename=filename,
+        content_type="application/zip",
+    )
 
 
 @login_required

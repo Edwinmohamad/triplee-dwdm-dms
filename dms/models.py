@@ -66,7 +66,7 @@ class User(AbstractUser):
 
     @property
     def can_review(self):
-        return self.role in {self.Role.SUPER_ADMIN, self.Role.NOKIA_REVIEWER}
+        return self.role == self.Role.SUPER_ADMIN
 
 
 class Project(models.Model):
@@ -199,6 +199,35 @@ class DocumentVersion(models.Model):
 
     def __str__(self):
         return f"{self.document} Rev {self.revision_no}"
+
+
+class DocumentAttachment(models.Model):
+    version = models.ForeignKey(
+        DocumentVersion,
+        on_delete=models.CASCADE,
+        related_name="attachments",
+    )
+    sequence_no = models.PositiveSmallIntegerField()
+    storage_key = models.CharField(max_length=500, unique=True)
+    stored_filename = models.CharField(max_length=255)
+    original_filename = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=160)
+    file_size = models.PositiveBigIntegerField()
+    checksum_sha256 = models.CharField(max_length=64)
+    description = models.CharField(max_length=180, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sequence_no", "pk"]
+        constraints = [
+            models.UniqueConstraint(
+                fields=["version", "sequence_no"],
+                name="unique_attachment_sequence_per_version",
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.version} - {self.original_filename}"
 
 
 class Review(models.Model):

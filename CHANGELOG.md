@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.3.0
+
+- Menambahkan beberapa attachment dalam satu revisi QC.
+- Upload QC berikutnya sebelum submit ditambahkan ke revisi yang sama.
+- Menambahkan preview/download per file dan download seluruh revisi sebagai ZIP.
+- Auto-rename file memakai nama site, Tower ID, batch, tipe dokumen, revisi, dan nomor file.
+- Membatasi Nokia ke view, preview/download, dan komentar tanpa keputusan status.
+- Memindahkan akses keputusan Approve/Revision/Reject menjadi khusus Super Admin.
+- Memigrasikan metadata file lama menjadi attachment pertama tanpa memindahkan file fisik.
+
 ## 1.2.1
 
 - Memperbaiki tombol upload yang terkunci pada dokumen historis berstatus `UNDER_REVIEW` tanpa file.

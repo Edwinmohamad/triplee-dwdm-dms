@@ -120,8 +120,23 @@ class BatchUpdateForm(forms.ModelForm):
         }
 
 
+class MultipleFileInput(forms.ClearableFileInput):
+    allow_multiple_selected = True
+
+
+class MultipleFileField(forms.FileField):
+    def clean(self, data, initial=None):
+        files = data if isinstance(data, (list, tuple)) else [data]
+        single_clean = super().clean
+        return [single_clean(item, initial) for item in files]
+
+
 class DocumentUploadForm(forms.Form):
-    file = forms.FileField(label="Pilih dokumen")
+    files = MultipleFileField(
+        label="Pilih dokumen",
+        widget=MultipleFileInput(attrs={"multiple": True}),
+        help_text="QC dapat memilih beberapa file sekaligus.",
+    )
     change_summary = forms.CharField(
         label="Catatan revisi",
         required=False,
@@ -129,16 +144,33 @@ class DocumentUploadForm(forms.Form):
     )
 
     allowed_extensions = {".pdf", ".docx", ".xlsx", ".jpg", ".jpeg", ".png", ".zip"}
+    max_files = 20
 
-    def clean_file(self):
-        uploaded = self.cleaned_data["file"]
-        ext = Path(uploaded.name).suffix.lower()
-        if ext not in self.allowed_extensions:
-            raise ValidationError("Format file tidak diizinkan.")
+    def __init__(self, *args, allow_multiple=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.allow_multiple = allow_multiple
+        if not allow_multiple:
+            self.fields["files"].widget.attrs.pop("multiple", None)
+            self.fields["files"].help_text = "Pilih satu file dokumen."
+
+    def clean_files(self):
+        uploads = self.cleaned_data["files"]
+        if len(uploads) > self.max_files:
+            raise ValidationError(f"Maksimal {self.max_files} file dalam satu kali upload.")
+        if not self.allow_multiple and len(uploads) > 1:
+            raise ValidationError("ATP dan FATP hanya menerima satu file per revisi.")
         max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
-        if uploaded.size > max_bytes:
-            raise ValidationError(f"Ukuran file maksimal {settings.MAX_UPLOAD_SIZE_MB} MB.")
-        return uploaded
+        total_size = 0
+        for uploaded in uploads:
+            ext = Path(uploaded.name).suffix.lower()
+            if ext not in self.allowed_extensions:
+                raise ValidationError(f"Format file {uploaded.name} tidak diizinkan.")
+            total_size += uploaded.size
+        if total_size > max_bytes:
+            raise ValidationError(
+                f"Total ukuran seluruh file maksimal {settings.MAX_UPLOAD_SIZE_MB} MB."
+            )
+        return uploads
 
 
 class ReviewForm(forms.Form):
