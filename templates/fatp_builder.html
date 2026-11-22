@@ -1,0 +1,105 @@
+{% extends 'base.html' %}
+{% load dms_tags %}
+{% block title %}FATP Builder · {{ document.batch.site.name }}{% endblock %}
+{% block page_title %}Buat FATP{% endblock %}
+{% block content %}
+<nav class="breadcrumbs"><a href="{% url 'site_list' %}">Site</a><span>/</span><a href="{% url 'site_detail' document.batch.site.pk %}">{{ document.batch.site.name }}</a><span>/</span><a href="{% url 'document_detail' document.pk %}">FATP</a><span>/</span><b>Buat dari Foto</b></nav>
+
+<section class="fatp-simple-hero">
+    <div class="fatp-simple-title"><span class="fatp-simple-mark">F</span><div><p class="eyebrow">FATP PHOTO BUILDER</p><h1>{{ document.batch.site.name }} · {{ document.batch.label }}</h1><p>{{ document.batch.site.tower_id }} · Upload foto sesuai bagian, lalu preview PDF.</p></div></div>
+    <div class="fatp-simple-progress"><div><span style="width:{{ builder_progress }}%"></span></div><strong>{{ completed_sections }}/{{ sections|length }} bagian terisi</strong><small>{{ photo_count }} foto</small></div>
+</section>
+
+<div class="fatp-simple-layout">
+    <main class="fatp-simple-main">
+        <section class="panel fatp-quick-info">
+            <header><div><span class="fatp-step-number done">1</span><div><h2>Informasi instalasi</h2><p>Site dan batch sudah terisi otomatis.</p></div></div><span class="fatp-auto-badge">✓ Otomatis</span></header>
+            <div class="fatp-identity-line"><div><small>Site</small><strong>{{ document.batch.site.name }}</strong></div><div><small>Site ID</small><strong>{{ document.batch.site.tower_id }}</strong></div><div><small>Batch</small><strong>{{ document.batch.label }}</strong></div><div><small>PIC</small><strong>{{ document.batch.pic_name|default:'Belum ditentukan' }}</strong></div></div>
+
+            <form method="post" action="{% url 'fatp_builder_settings' document.pk %}" class="fatp-quick-form" data-fatp-settings>
+                {% csrf_token %}
+                <div class="fatp-essential-fields">
+                    <label><span>Tanggal instalasi</span>{{ builder_form.installation_date }}</label>
+                    <div class="fatp-device-heading"><div><span>Perangkat yang di-install</span><small>Nama perangkat dan jumlah unit</small></div><button class="button secondary small" type="button" data-add-equipment>+ Perangkat</button></div>
+                </div>
+                <div class="fatp-simple-equipment" data-equipment-list>
+                    {% for item in builder.equipment.all %}
+                    <div class="fatp-simple-equipment-row" data-equipment-row>
+                        <span class="fatp-row-number">{{ forloop.counter }}</span>
+                        <label class="device-name"><span>Nama perangkat</span><input type="text" name="equipment_name" maxlength="180" value="{{ item.name }}" placeholder="Contoh: Nokia PSS16II" required></label>
+                        <label class="device-qty"><span>Qty</span><input type="number" name="equipment_quantity" min="1" max="999" value="{{ item.quantity }}"></label>
+                        <details class="fatp-device-more"><summary>Detail</summary><div><label><span>Model / tipe</span><input type="text" name="equipment_model" maxlength="160" value="{{ item.model }}" placeholder="Opsional"></label><label><span>Keterangan</span><input type="text" name="equipment_notes" maxlength="220" value="{{ item.notes }}" placeholder="Opsional"></label></div></details>
+                        <button type="button" class="fatp-remove-simple" data-remove-equipment aria-label="Hapus perangkat" title="Hapus perangkat">×</button>
+                    </div>
+                    {% empty %}
+                    <div class="fatp-simple-equipment-row" data-equipment-row>
+                        <span class="fatp-row-number">1</span>
+                        <label class="device-name"><span>Nama perangkat</span><input type="text" name="equipment_name" maxlength="180" placeholder="Contoh: Nokia PSS16II"></label>
+                        <label class="device-qty"><span>Qty</span><input type="number" name="equipment_quantity" min="1" max="999" value="1"></label>
+                        <details class="fatp-device-more"><summary>Detail</summary><div><label><span>Model / tipe</span><input type="text" name="equipment_model" maxlength="160" placeholder="Opsional"></label><label><span>Keterangan</span><input type="text" name="equipment_notes" maxlength="220" placeholder="Opsional"></label></div></details>
+                        <button type="button" class="fatp-remove-simple" data-remove-equipment aria-label="Hapus perangkat">×</button>
+                    </div>
+                    {% endfor %}
+                </div>
+
+                <details class="fatp-document-options"><summary>Pengaturan dokumen <small>opsional</small></summary><div><label><span>Judul pekerjaan</span>{{ builder_form.installation_title }}</label><label><span>Keterangan pekerjaan</span>{{ builder_form.work_description }}</label></div></details>
+                <button class="button primary fatp-save-info" type="submit">Simpan Informasi</button>
+            </form>
+        </section>
+
+        <section class="fatp-photo-workflow">
+            <header class="fatp-workflow-heading"><div><span class="fatp-step-number">2</span><div><h2>Upload foto FATP</h2><p>Bagian sudah disiapkan sesuai dokumen contoh. Upload foto pada bagian yang sesuai.</p></div></div><span>{{ completed_sections }}/{{ sections|length }} selesai</span></header>
+            <div class="fatp-quick-sections">
+                {% for section in sections %}
+                <article class="panel fatp-quick-section{% if section.photos.count %} is-complete{% endif %}" id="section-{{ section.pk }}">
+                    <header class="fatp-quick-section-head">
+                        <div class="fatp-section-check">{% if section.photos.count %}✓{% else %}{{ forloop.counter }}{% endif %}</div>
+                        <div><h3>{{ section.title }}</h3><p>{{ section.upload_hint }}</p></div>
+                        <span class="fatp-photo-count">{{ section.photos.count }} foto</span>
+                    </header>
+
+                    <form method="post" enctype="multipart/form-data" action="{% url 'fatp_photo_upload' section.pk %}" class="fatp-quick-upload" data-fatp-photo-upload>
+                        {% csrf_token %}
+                        <label><input type="file" name="photos" accept="image/jpeg,image/png,image/webp" multiple required><span>＋</span><div><b>{% if section.photos.count %}Tambah foto lainnya{% else %}Pilih foto{% endif %}</b><small>Bisa pilih beberapa foto sekaligus</small></div></label>
+                        <div class="fatp-pending-previews" data-fatp-pending-previews hidden></div>
+                        <button class="button primary small" type="submit">Upload</button>
+                    </form>
+
+                    <form method="post" action="{% url 'fatp_section_update' section.pk %}" class="fatp-quick-section-editor">
+                        {% csrf_token %}
+                        {% if section.photos.count %}
+                        <div class="fatp-quick-photo-grid columns-{{ section.columns }}">
+                            {% for photo in section.photos.all %}
+                            <div class="fatp-quick-photo">
+                                <div><img src="{% url 'fatp_photo_file' photo.pk %}" alt="{{ photo.caption|default:photo.original_filename }}" loading="lazy"><span>{{ photo.sequence_no|stringformat:'02d' }}</span></div>
+                                <input type="text" name="caption_{{ photo.pk }}" maxlength="220" value="{{ photo.caption }}" aria-label="Keterangan foto {{ photo.sequence_no }}" placeholder="Keterangan foto">
+                                <div><button type="submit" formaction="{% url 'fatp_photo_move' photo.pk 'up' %}" title="Geser ke kiri">←</button><button type="submit" formaction="{% url 'fatp_photo_move' photo.pk 'down' %}" title="Geser ke kanan">→</button><button class="danger" type="submit" formaction="{% url 'fatp_photo_delete' photo.pk %}" data-confirm-inline="Hapus foto ini?">Hapus</button></div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
+                        <details class="fatp-section-options-simple"><summary>Atur bagian <small>opsional</small></summary><div class="fatp-section-options-body"><label><span>Nama bagian</span><input type="text" name="title" maxlength="220" value="{{ section.title }}" required></label><label><span>Keterangan</span><textarea name="description" rows="2">{{ section.description }}</textarea></label><label><span>Susunan foto</span><select name="columns"><option value="1"{% if section.columns == 1 %} selected{% endif %}>1 kolom</option><option value="2"{% if section.columns == 2 %} selected{% endif %}>2 kolom</option><option value="3"{% if section.columns == 3 %} selected{% endif %}>3 kolom</option></select></label><label class="fatp-checkbox"><input type="checkbox" name="page_break_before"{% if section.page_break_before %} checked{% endif %}><span>Mulai di halaman baru</span></label></div><div class="fatp-section-option-actions"><button class="button secondary small" type="submit">Simpan Perubahan</button><button class="button ghost small" type="submit" formaction="{% url 'fatp_section_move' section.pk 'up' %}">Naik</button><button class="button ghost small" type="submit" formaction="{% url 'fatp_section_move' section.pk 'down' %}">Turun</button><button class="button danger small" type="submit" formaction="{% url 'fatp_section_delete' section.pk %}" data-confirm-inline="Hapus bagian {{ section.title|escapejs }} beserta seluruh fotonya?">Hapus Bagian</button></div></details>
+                        {% if section.photos.count %}<div class="fatp-caption-save"><span>Ubah keterangan foto bila perlu.</span><button class="button secondary small" type="submit">Simpan Keterangan</button></div>{% endif %}
+                    </form>
+                </article>
+                {% endfor %}
+            </div>
+
+            <details class="panel fatp-add-custom-section"><summary>+ Tambah bagian lain</summary><form method="post" action="{% url 'fatp_section_add' document.pk %}">{% csrf_token %}<input type="text" name="title" maxlength="220" placeholder="Contoh: NMS Capture Alarm" required><button class="button primary" type="submit">Tambah Bagian</button></form></details>
+        </section>
+    </main>
+
+    <aside class="fatp-simple-side">
+        <section class="panel fatp-output-card" id="fatp-output">
+            <div class="fatp-output-icon">PDF</div><p class="eyebrow">FINAL OUTPUT</p><h2>Preview & buat FATP</h2><p>Periksa susunan PDF terlebih dahulu. Preview tidak membuat revisi baru.</p>
+            <a class="button secondary full" href="{% url 'fatp_builder_preview' document.pk %}" target="_blank">Preview PDF</a>
+            <form method="post" action="{% url 'fatp_builder_generate' document.pk %}" data-confirm="Generate FATP sebagai revisi baru?">{% csrf_token %}<label><span>Status dokumen</span><select name="output_status">{% for value,label in status_choices %}<option value="{{ value }}"{% if value == 'DRAFT' %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label><button class="button success full" type="submit">Generate FATP PDF</button></form>
+            <small>Nama file</small><code>FATP_{{ document.batch.site.name }}_{{ document.batch.site.tower_id }}.pdf</code>
+        </section>
+        <div class="fatp-side-help"><b>Cara cepat</b><ol><li>Isi tanggal dan perangkat.</li><li>Upload foto ke bagian yang sesuai.</li><li>Preview lalu generate PDF.</li></ol></div>
+    </aside>
+</div>
+
+<template id="fatp-equipment-template"><div class="fatp-simple-equipment-row" data-equipment-row><span class="fatp-row-number">0</span><label class="device-name"><span>Nama perangkat</span><input type="text" name="equipment_name" maxlength="180" placeholder="Contoh: Nokia PSS16II" required></label><label class="device-qty"><span>Qty</span><input type="number" name="equipment_quantity" min="1" max="999" value="1"></label><details class="fatp-device-more"><summary>Detail</summary><div><label><span>Model / tipe</span><input type="text" name="equipment_model" maxlength="160" placeholder="Opsional"></label><label><span>Keterangan</span><input type="text" name="equipment_notes" maxlength="220" placeholder="Opsional"></label></div></details><button type="button" class="fatp-remove-simple" data-remove-equipment aria-label="Hapus perangkat">×</button></div></template>
+{% endblock %}

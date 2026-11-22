@@ -68,13 +68,37 @@
     </div>
 
     <aside class="document-actions-column">
+        {% if request.user.role == 'SUPER_ADMIN' and document.document_type == 'FATP' %}
+        <section class="panel fatp-entry-panel">
+            <div class="fatp-entry-icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 15l4-4 4 4 3-3 5 5"/><circle cx="15.5" cy="8.5" r="1.5"/></svg></div>
+            <div><p class="eyebrow">FATP PHOTO BUILDER</p><h3>{% if has_fatp_builder %}Lanjutkan FATP{% else %}Buat FATP dari foto{% endif %}</h3><p class="muted">Susun informasi perangkat, bagian, kolom, dan foto lalu generate PDF rapi.</p></div>
+            <a class="button primary full" href="{% url 'fatp_builder_editor' document.pk %}">{% if has_fatp_builder %}Buka FATP Builder{% else %}Mulai Buat FATP{% endif %}</a>
+        </section>
+        {% endif %}
+
+        {% if request.user.role == 'SUPER_ADMIN' %}
+        <section class="panel master-status-panel">
+            <div class="master-status-heading"><span><svg viewBox="0 0 24 24"><path d="M12 2 4 5v6c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V5l-8-3Z"/><path d="m9 12 2 2 4-5"/></svg></span><div><p class="eyebrow">MASTER CONTROL</p><h3>Atur status dokumen</h3></div></div>
+            <p class="muted master-status-copy">Sebagai Super Admin, Anda dapat menetapkan status apa pun tanpa mengikuti urutan workflow. File dan riwayat revisi tidak dihapus.</p>
+            <div class="master-current-status"><span>Status saat ini</span><b class="badge {{ document.status|status_class }}">{{ document.get_status_display }}</b></div>
+            <form method="post" action="{% url 'document_status_override' document.pk %}" class="stack-form" data-confirm="Ubah status {{ document.document_type }} {{ document.batch.site.name }} secara manual?">{% csrf_token %}{{ manual_status_form.as_p }}<button class="button master-status-button full" type="submit">Terapkan Status</button></form>
+            <small class="master-audit-note">Setiap perubahan otomatis dicatat di Audit Log.</small>
+        </section>
+        {% endif %}
+
         {% if can_upload %}
         <section class="panel sticky-panel">
             <p class="eyebrow">TRIPLE E ACTION</p><h3>{% if document.document_type == 'QC' %}Upload file QC{% else %}Upload revisi{% endif %}</h3>
             <p class="muted upload-hint">File tersimpan di storage server Triple E dan tetap dapat diunduh oleh Nokia.</p>
             {% if document.document_type == 'QC' %}<div class="multi-file-note"><strong>Multi-file QC</strong><span>Pilih beberapa file sekaligus. Selama belum disubmit, upload berikutnya ditambahkan ke revisi QC yang sama.</span></div>{% endif %}
             {% if historical_status_without_file %}<div class="inline-warning">Status berasal dari tracker lama, tetapi file historis belum tersedia. Upload pertama akan mempertahankan status <strong>{{ document.get_status_display }}</strong>.</div>{% endif %}
-            <form method="post" enctype="multipart/form-data" action="{% url 'document_upload' document.pk %}" class="stack-form" data-upload-form>{% csrf_token %}{{ upload_form.as_p }}<button class="button primary full" type="submit" data-upload-button {% if not can_upload_file %}disabled{% endif %}>{% if document.document_type == 'QC' %}Upload File QC{% else %}Upload ke Server{% endif %}</button></form>
+            <form method="post" enctype="multipart/form-data" action="{% url 'document_upload' document.pk %}" class="stack-form" data-upload-form>{% csrf_token %}{{ upload_form.as_p }}
+                <div class="upload-action-group">
+                    <button class="button ghost full" type="submit" name="upload_action" value="draft" data-upload-button data-upload-intent="draft" {% if not can_upload_file %}disabled{% endif %}>Simpan Draft</button>
+                    <button class="button primary full" type="submit" name="upload_action" value="submit_review" data-upload-button data-upload-intent="review" {% if not can_upload_file %}disabled{% endif %}>Upload &amp; Submit Review</button>
+                    {% if can_mark_signed %}<button class="button success full" type="submit" name="upload_action" value="signed_approved" data-upload-button data-upload-intent="signed" {% if not can_upload_signed %}disabled{% endif %}>Upload Signed/TTD → Approved</button>{% endif %}
+                </div>
+            </form>
             {% if can_submit %}<form method="post" action="{% url 'document_submit' document.pk %}" class="top-gap">{% csrf_token %}<button class="button success full" type="submit">Submit ke Nokia</button></form>{% endif %}
         </section>
         {% endif %}

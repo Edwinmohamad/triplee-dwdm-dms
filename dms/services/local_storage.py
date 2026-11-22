@@ -1,6 +1,7 @@
 import hashlib
 import mimetypes
 import re
+import uuid
 from pathlib import Path
 
 from django.conf import settings
@@ -106,6 +107,43 @@ def store_document_file(document, uploaded_file, revision_no, attachment_no=1):
         _clean_component(f"BATCH-{batch.batch_no:02d}_{batch.label}", "batch"),
         _clean_component(document.document_type, "document"),
         f"REV-{revision_no:03d}",
+        stored_filename,
+    )
+    destination = _resolve_storage_key(storage_key)
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    with destination.open("xb") as target:
+        for chunk in uploaded_file.chunks():
+            target.write(chunk)
+    uploaded_file.seek(0)
+    mime_type = (
+        getattr(uploaded_file, "content_type", None)
+        or mimetypes.guess_type(uploaded_file.name)[0]
+        or "application/octet-stream"
+    )
+    return {
+        "storage_key": storage_key.as_posix(),
+        "stored_filename": stored_filename,
+        "mime_type": mime_type,
+        "file_size": destination.stat().st_size,
+    }
+
+
+def store_fatp_photo(section, uploaded_file, sequence_no):
+    document = section.builder.document
+    project = document.batch.site.project
+    site = document.batch.site
+    batch = document.batch
+    extension = Path(uploaded_file.name).suffix.lower() or ".jpg"
+    stored_filename = (
+        f"FATP_PHOTO_S{section.sequence_no:02d}_F{sequence_no:03d}_"
+        f"{uuid.uuid4().hex[:10]}{extension}"
+    )
+    storage_key = Path(
+        _clean_component(project.code, "project"),
+        _clean_component(f"{site.tower_id}_{site.name}", "site"),
+        _clean_component(f"BATCH-{batch.batch_no:02d}_{batch.label}", "batch"),
+        "FATP-BUILDER",
+        _clean_component(f"SECTION-{section.sequence_no:02d}_{section.title}", "section"),
         stored_filename,
     )
     destination = _resolve_storage_key(storage_key)

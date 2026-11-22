@@ -1,11 +1,103 @@
 # Changelog
 
-## 1.4.2
+## 1.7.4
 
-- Menampilkan DOC/DOCX, XLS/XLSX, ODT/ODS, dan PPT/PPTX sebagai PDF langsung di tab browser.
-- Menjaga tombol Download sebagai satu-satunya aksi yang mengunduh file asli.
-- Menampilkan halaman informasi tanpa memaksa download untuk format yang tidak didukung.
-- Menambahkan LibreOffice headless dan font dasar ke container web untuk konversi preview.
+- Mengoreksi Mentigi dan HUT. Sungai Liat agar masing-masing hanya memiliki Batch 1.
+- Mengubah total proyek menjadi 16 site, 16 installation batch, dan 48 register dokumen.
+- Menambahkan migration pembersihan dua Batch 2 duplikat dengan pemeriksaan keamanan data.
+- Membuat jumlah batch pada hero dashboard mengikuti data aktif, bukan angka statis.
+
+## 1.7.3
+
+- Mengubah tombol Buka Foto Google Drive agar selalu terbuka di tab browser baru.
+- Menghapus perilaku popup dan fallback jendela popup dari JavaScript.
+- Menambahkan proteksi `noopener noreferrer` pada tautan eksternal Google Drive.
+
+## 1.7.2
+
+- Memperbaiki Server Error 500 ketika Super Admin mengubah status dokumen secara manual.
+- Menambahkan kolom catatan perubahan status yang bersifat opsional.
+- Menjaga endpoint tetap kompatibel dengan halaman lama/cache browser yang hanya mengirim pilihan status.
+- Menambahkan pengujian perubahan status tanpa catatan agar regresi tidak terulang.
+
+## 1.7.1
+
+- Menyederhanakan FATP Builder menjadi alur upload-first yang lebih ringkas dan mudah digunakan.
+- Menambahkan tujuh bagian default otomatis sesuai PDF contoh FATP Koba.
+- Menyembunyikan pengaturan judul, model perangkat, kolom, page break, urutan, dan bagian custom sebagai opsi lanjutan.
+- Menampilkan progress bagian terisi, jumlah foto, upload multi-foto langsung, dan output PDF pada panel yang mudah dijangkau.
+- Mengisi builder lama yang masih kosong melalui migration tanpa mengubah builder yang sudah memiliki bagian atau foto.
+
+## 1.7.0
+
+- Menambahkan FATP Custom Builder khusus Super Admin dengan informasi site, tanggal instalasi, PIC, deskripsi pekerjaan, dan daftar perangkat dinamis.
+- Mengizinkan Super Admin menambah, menghapus, mengurutkan, serta mengubah bagian FATP secara bebas.
+- Mendukung jumlah foto bebas pada setiap bagian dengan pilihan layout 1, 2, atau 3 kolom.
+- Menambahkan upload multi-foto, caption, urutan foto, preview PDF, page break, dan generate revisi FATP langsung ke DMS.
+- Menghasilkan PDF Letter native dengan foto auto-orient, rasio gambar terjaga, tabel perangkat, kotak foto, header, footer, dan nomor halaman.
+- Mengizinkan Super Admin memilih status apa pun ketika menghasilkan FATP dan tetap menyediakan kontrol status manual.
+- Memindahkan folder foto Google Drive dari level site ke level installation batch tanpa menghapus link lama.
+- Menampilkan seluruh batch di bawah satu site beserta PIC, status QC/ATP/FATP, progress, dan folder foto masing-masing.
+- Menjaga metrik utama pada 16 physical site dan 18 installation batch.
+- Mengizinkan file yang sama diunggah kembali ketika membuat revisi dokumen baru.
+
+## 1.6.2
+
+- Menghapus card dan background putih di belakang logo Nokia serta Triple E.
+- Memproses background putih kedua logo menjadi transparan di browser.
+- Mengubah dual-brand header menjadi corporate dark minimal dengan logo monokrom.
+- Mengurangi neon cyan, ornament lingkaran, shadow, dan border dekoratif yang berlebihan.
+- Mengubah hero dashboard ke tema navy-slate dengan aksen biru enterprise yang lebih tenang.
+
+## 1.6.1
+
+- Menambahkan Kontrol Status Super Admin pada setiap detail dokumen.
+- Mengizinkan Super Admin menetapkan status apa pun tanpa mengikuti urutan workflow normal.
+- Menjaga file dan riwayat revisi saat status diubah secara manual.
+- Menyesuaikan timestamp submitted/approved dan penguncian versi untuk Under Review serta Approved.
+- Mencatat status lama, status baru, dan catatan opsional ke Audit Log.
+
+## 1.6.0
+
+- Menambahkan dual-brand dashboard dengan Nokia sebagai Customer dan Triple E sebagai Implementation Vendor.
+- Menambahkan endpoint dan mount read-only khusus `nokialogo.png` dengan fallback wordmark apabila file tidak tersedia.
+- Mengganti seluruh simbol menu sidebar dengan ikon SVG modern dan konsisten.
+- Menambahkan state hover, active glow, ikon notifikasi baru, dukungan dark mode, dan layout dual-brand responsif mobile.
+
+## 1.5.3
+
+- Membuka tombol Buka Foto dalam popup Google Drive yang terpisah dari halaman DMS.
+- Menempatkan popup di tengah layar dengan ukuran responsif desktop.
+- Menambahkan fallback tab baru apabila popup diblokir atau perangkat tidak mendukung popup.
+
+## 1.5.2
+
+- Memindahkan Foto Instalasi dari dashboard utama menjadi menu dan halaman khusus.
+- Mengubah tampilan menjadi split view: daftar site di kiri dan detail folder di kanan.
+- Menambahkan pencarian serta filter region dan status tanpa reload halaman.
+- Menampilkan aksi Buka Foto dan Salin Link hanya pada site yang telah terhubung.
+- Menempatkan pengaturan folder Google Drive secara inline pada panel detail khusus admin.
+- Menambahkan tampilan responsif mobile dan dark mode untuk halaman Foto Instalasi.
+
+## 1.5.1
+
+- Memperbaiki loader yang dapat tetap aktif setelah download atau preview selesai.
+- Loader kini hanya muncul untuk navigasi internal dan submit form, lalu otomatis dibersihkan saat halaman/tab kembali aktif.
+- Menambahkan menu Foto Instalasi langsung di dashboard tanpa popup.
+- Menambahkan link folder Google Drive per site dengan pencarian, salin link, buka di tab yang sama, dan pengaturan inline untuk admin.
+- Menyimpan link folder saja tanpa OAuth Client Secret atau kredensial Google di DMS.
+
+## 1.5.0
+
+- Mengubah dashboard menjadi Project Control Center dengan progress per tipe dokumen, KPI strip, Attention Required, dan review aging.
+- Menambahkan register 18 installation batch langsung di dashboard beserta filter Site ID, tipe dokumen, status, dan PIC.
+- Memperbaiki pencarian/filter Site yang sebelumnya tampak stuck dengan fallback CSS, null guard JavaScript, dan tombol Reset.
+- Menambahkan quick filter Under Review, Perlu Revisi, dan Belum Upload.
+- Menambahkan export laporan progress PDF berisi ringkasan, prioritas, serta status QC/ATP/FATP per batch.
+- Menambahkan tiga aksi upload: Simpan Draft, Upload & Submit Review, dan Upload Signed/TTD menjadi Approved.
+- Membatasi aksi Signed/Approved hanya untuk Super Admin dan mencatat keputusan otomatis pada audit/review history.
+- Mengizinkan Super Admin mengunggah revisi signed langsung dari dokumen berstatus Under Review.
+- Mengembalikan preview ke file asli dengan Content-Disposition inline tanpa konversi format.
 
 ## 1.4.1
 

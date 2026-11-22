@@ -20,17 +20,18 @@
             <span><strong>Triple E</strong><small>Document Control</small></span>
         </div>
         <nav class="nav-list" aria-label="Navigasi utama">
-            <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><span>▦</span> Dashboard</a>
-            <a href="{% url 'site_list' %}" class="{% if request.resolver_match.url_name == 'site_list' or request.resolver_match.url_name == 'site_detail' or request.resolver_match.url_name == 'batch_detail' or request.resolver_match.url_name == 'document_detail' %}active{% endif %}"><span>⌂</span> Site & Batch</a>
-            <a href="{% url 'notifications' %}" class="{% if request.resolver_match.url_name == 'notifications' %}active{% endif %}"><span>◉</span> Notifikasi {% if unread_notifications %}<b class="nav-count">{{ unread_notifications }}</b>{% endif %}</a>
+            <a href="{% url 'dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/></svg></span> Dashboard</a>
+            <a href="{% url 'site_list' %}" class="{% if request.resolver_match.url_name == 'site_list' or request.resolver_match.url_name == 'site_detail' or request.resolver_match.url_name == 'batch_detail' or request.resolver_match.url_name == 'document_detail' or request.resolver_match.url_name == 'fatp_builder_editor' %}active{% endif %}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M4 20V7l8-4 8 4v13"/><path d="M8 20v-5h8v5M8 9h.01M12 9h.01M16 9h.01M8 12h.01M12 12h.01M16 12h.01"/></svg></span> Site & Batch</a>
+            <a href="{% url 'installation_photos' %}" class="{% if request.resolver_match.url_name == 'installation_photos' %}active{% endif %}"><span class="nav-icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 15-4-4L7 20"/></svg></span> Foto Instalasi</a>
+            <a href="{% url 'notifications' %}" class="{% if request.resolver_match.url_name == 'notifications' %}active{% endif %}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg></span> Notifikasi {% if unread_notifications %}<b class="nav-count">{{ unread_notifications }}</b>{% endif %}</a>
             {% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'TRIPLEE_ADMIN' %}
                 <p class="nav-label">Administrasi</p>
-                <a href="{% url 'user_management' %}" class="{% if request.resolver_match.url_name == 'user_management' %}active{% endif %}"><span>♙</span> Pengguna</a>
-                <a href="{% url 'audit_log' %}" class="{% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}"><span>≡</span> Audit Log</a>
+                <a href="{% url 'user_management' %}" class="{% if request.resolver_match.url_name == 'user_management' %}active{% endif %}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/></svg></span> Pengguna</a>
+                <a href="{% url 'audit_log' %}" class="{% if request.resolver_match.url_name == 'audit_log' %}active{% endif %}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M9 5h10M9 12h10M9 19h10"/><circle cx="4" cy="5" r="1"/><circle cx="4" cy="12" r="1"/><circle cx="4" cy="19" r="1"/></svg></span> Audit Log</a>
             {% endif %}
             {% if request.user.role == 'SUPER_ADMIN' %}
-                <a href="{% url 'storage_status' %}" class="{% if request.resolver_match.url_name == 'storage_status' or request.resolver_match.url_name == 'integrations' %}active{% endif %}"><span>▤</span> Storage Server</a>
-                <a href="{% url 'backup_status' %}" class="{% if request.resolver_match.url_name == 'backup_status' %}active{% endif %}"><span>↻</span> Backup</a>
+                <a href="{% url 'storage_status' %}" class="{% if request.resolver_match.url_name == 'storage_status' or request.resolver_match.url_name == 'integrations' %}active{% endif %}"><span class="nav-icon"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="5" rx="8" ry="3"/><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5"/><path d="M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7"/></svg></span> Storage Server</a>
+                <a href="{% url 'backup_status' %}" class="{% if request.resolver_match.url_name == 'backup_status' %}active{% endif %}"><span class="nav-icon"><svg viewBox="0 0 24 24"><path d="M20 7v5h-5"/><path d="M4 17v-5h5"/><path d="M6.1 9A7 7 0 0 1 18.6 6L20 7M4 17l1.4 1A7 7 0 0 0 17.9 15"/></svg></span> Backup</a>
             {% endif %}
         </nav>
         <div class="sidebar-user">
@@ -50,7 +51,7 @@
             <div class="topbar-actions">
                 <span class="system-status"><i></i> System online</span>
                 <button class="theme-toggle" type="button" data-theme-toggle aria-label="Aktifkan mode gelap" title="Aktifkan mode gelap"><span data-theme-icon aria-hidden="true">☾</span><span data-theme-label>Mode gelap</span></button>
-                <a class="notification-button" href="{% url 'notifications' %}" aria-label="Notifikasi">●{% if unread_notifications %}<b>{{ unread_notifications }}</b>{% endif %}</a>
+                <a class="notification-button" href="{% url 'notifications' %}" aria-label="Notifikasi"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9"/><path d="M10 21h4"/></svg>{% if unread_notifications %}<b>{{ unread_notifications }}</b>{% endif %}</a>
             </div>
         </header>
         <div class="content-area">

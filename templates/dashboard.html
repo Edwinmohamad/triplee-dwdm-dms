@@ -1,109 +1,112 @@
 {% extends 'base.html' %}
 {% load dms_tags %}
-{% block page_title %}Dashboard Overview{% endblock %}
+{% block page_title %}Project Control Center{% endblock %}
 {% block content %}
-<section class="dashboard-overview">
-    <article class="progress-hero">
-        <div class="progress-hero-head">
-            <div>
-                <p class="eyebrow">PROJECT DOCUMENT READINESS</p>
-                <h1>Progress dokumen DWDM</h1>
-                <p>QC, ATP, dan FATP dari seluruh installation batch.</p>
-            </div>
-            <a class="export-report-button" href="{% url 'progress_report_export' %}" data-file-download>
-                <span aria-hidden="true">⇩</span>
-                <span><strong>Export report</strong><small>Excel · data terbaru</small></span>
-            </a>
-        </div>
-        <div class="progress-hero-main">
-            <div class="hero-progress-ring" style="--progress: {{ metrics.progress }}" aria-label="Progress {{ metrics.progress }} persen">
-                <div><strong>{{ metrics.progress }}%</strong><span>overall</span></div>
-            </div>
-            <div class="progress-hero-copy">
-                <strong>{{ metrics.approved }} dari {{ metrics.documents }}</strong>
-                <p>dokumen wajib sudah berstatus Approved.</p>
-                <div class="hero-progress-track"><span style="width: {{ metrics.progress }}%"></span></div>
-                <div class="progress-milestones" aria-hidden="true"><span>0</span><span>25</span><span>50</span><span>75</span><span>100%</span></div>
-                <small>Snapshot {{ report_generated_at|date:'d M Y, H:i' }} WIB</small>
-            </div>
-        </div>
+<section class="project-partnership" aria-label="Nokia customer dan Triple E vendor">
+    <article class="partner-brand customer">
+        <span class="partner-role">CUSTOMER</span>
+        <div class="partner-logo nokia-logo"><span>NOKIA</span><img src="{% url 'nokia_logo' %}" alt="Nokia" data-transparent-logo onload="this.parentElement.classList.add('has-logo')" onerror="this.hidden=true"></div>
+        <small>Customer & Review Authority</small>
     </article>
-
-    <article class="panel status-composition">
-        <div class="section-heading">
-            <div><p class="eyebrow">STATUS DISTRIBUTION</p><h3>Komposisi dokumen</h3></div>
-            <span class="live-pill"><i></i> Live</span>
-        </div>
-        <div class="status-stack" aria-label="Komposisi status dokumen">
-            {% for item in status_breakdown %}<span class="{{ item.style }}" style="width: {{ item.percentage }}%" title="{{ item.label }}: {{ item.count }}"></span>{% endfor %}
-        </div>
-        <div class="status-legend">
-            {% for item in status_breakdown %}
-            <div><span class="legend-dot {{ item.style }}"></span><p>{{ item.label }}<small>{{ item.percentage }}% dari dokumen</small></p><strong>{{ item.count }}</strong></div>
-            {% endfor %}
-        </div>
-    </article>
-</section>
-
-<section class="metric-grid">
-    <article class="metric-card"><span class="metric-icon cyan">S</span><div><strong>{{ metrics.sites }}</strong><p>Site fisik</p></div><small>DWDM project</small></article>
-    <article class="metric-card"><span class="metric-icon blue">B</span><div><strong>{{ metrics.batches }}</strong><p>Installation batch</p></div><small>Tracking terpisah</small></article>
-    <article class="metric-card"><span class="metric-icon green">✓</span><div><strong>{{ metrics.sites_completed }}</strong><p>Site selesai</p></div><small>Semua dokumen approved</small></article>
-    <article class="metric-card"><span class="metric-icon amber">P</span><div><strong>{{ metrics.sites_pending }}</strong><p>Site berjalan</p></div><small>Belum lengkap</small></article>
-    <article class="metric-card"><span class="metric-icon red">!</span><div><strong>{{ metrics.sites_revision }}</strong><p>Site dengan revisi</p></div><small>Perlu tindak lanjut</small></article>
-    <article class="metric-card"><span class="metric-icon blue">R</span><div><strong>{{ metrics.under_review }}</strong><p>Dokumen review</p></div><small>Menunggu catatan Nokia</small></article>
-</section>
-
-<section class="panel document-progress-section">
-    <div class="section-heading">
-        <div><p class="eyebrow">BY DOCUMENT TYPE</p><h3>Progress QC, ATP & FATP</h3><p>Persentase Approved untuk setiap kelompok dokumen.</p></div>
-        <a href="{% url 'site_list' %}">Buka register →</a>
+    <div class="partnership-core">
+        <span class="partnership-line"></span>
+        <div><i></i><strong>DWDM</strong><small>DOCUMENT CONTROL</small></div>
+        <span class="partnership-line"></span>
     </div>
-    <div class="document-progress-grid">
+    <article class="partner-brand vendor">
+        <span class="partner-role">IMPLEMENTATION VENDOR</span>
+        <div class="partner-logo triplee-logo"><span>TRIPLE E</span><img src="{% url 'brand_logo' %}" alt="Triple E" data-transparent-logo onload="this.parentElement.classList.add('has-logo')" onerror="this.hidden=true"></div>
+        <small>Implementation & Documentation</small>
+    </article>
+</section>
+
+<section class="control-hero">
+    <div class="control-hero-copy">
+        <p class="eyebrow">PROJECT DOCUMENT READINESS</p>
+        <h1>DWDM Project Control</h1>
+        <p>QC, ATP, dan FATP dari {{ metrics.batches }} installation batch dalam satu tampilan operasional.</p>
+        <div class="control-hero-actions">
+            <a class="control-export primary" href="{% url 'progress_report_pdf_export' %}" data-file-download><span>PDF</span><div><strong>Export Progress PDF</strong><small>Siap dikirim ke Nokia</small></div></a>
+            <a class="control-export" href="{% url 'progress_report_export' %}" data-file-download><span>XLS</span><div><strong>Export Excel</strong><small>Data detail & audit</small></div></a>
+        </div>
+        <small class="control-snapshot">Data terakhir {{ generated_at|date:'d M Y, H:i' }} WIB</small>
+    </div>
+    <div class="control-progress-orbit" style="--progress: {{ metrics.progress }}" aria-label="Progress projek {{ metrics.progress }} persen">
+        <div><strong>{{ metrics.progress }}%</strong><span>Overall</span><small>{{ metrics.approved }}/{{ metrics.documents }} Approved</small></div>
+    </div>
+    <div class="control-type-bars">
         {% for item in type_summary %}
-        <article class="document-progress-card">
-            <div class="document-ring" style="--progress: {{ item.progress }}">
-                <div><strong>{{ item.progress }}%</strong><span>{{ item.type }}</span></div>
-            </div>
-            <div class="document-progress-copy">
-                <div><span class="doc-token">{{ item.type }}</span><small>DOCUMENT GROUP</small></div>
-                <strong>{{ item.approved }} / {{ item.total }} approved</strong>
-                <p><span class="status-dot info"></span>{{ item.under_review }} review <span class="status-dot warning"></span>{{ item.revision }} revisi</p>
-            </div>
-        </article>
+        <div>
+            <p><strong>{{ item.type }}</strong><span>{{ item.approved }}/{{ item.total }} approved</span><b>{{ item.progress }}%</b></p>
+            <div class="control-bar"><span style="width: {{ item.progress }}%"></span></div>
+            <small>{{ item.under_review }} review · {{ item.revision }} revisi</small>
+        </div>
         {% endfor %}
     </div>
 </section>
 
-<section class="split-grid">
-    <div class="panel">
-        <div class="section-heading"><div><p class="eyebrow">NEEDS ATTENTION</p><h3>Prioritas tindak lanjut</h3></div></div>
-        <div class="attention-list">
-            {% for document in attention %}
-            <a href="{% url 'document_detail' document.pk %}">
-                <span class="status-dot {{ document.status|status_class }}"></span>
-                <div><strong>{{ document.batch.site.name }} · {{ document.document_type }}</strong><small>{{ document.batch.label }} · {{ document.get_status_display }}</small></div>
-                <span>→</span>
-            </a>
-            {% empty %}<div class="empty-state"><strong>Tidak ada isu aktif</strong><p>Semua dokumen berjalan sesuai alur.</p></div>{% endfor %}
+<section class="control-kpis" aria-label="Project KPI">
+    <div><span class="kpi-signal green"></span><p><strong>{{ metrics.sites_completed }}</strong><small>Site selesai</small></p></div>
+    <div><span class="kpi-signal blue"></span><p><strong>{{ metrics.under_review }}</strong><small>Under review</small></p></div>
+    <div><span class="kpi-signal amber"></span><p><strong>{{ metrics.overdue_review }}</strong><small>Review overdue</small></p></div>
+    <div><span class="kpi-signal red"></span><p><strong>{{ metrics.revision_required }}</strong><small>Perlu revisi</small></p></div>
+    <div><span class="kpi-signal cyan"></span><p><strong>{{ metrics.not_started }}</strong><small>Belum mulai</small></p></div>
+    <div><span class="kpi-signal neutral"></span><p><strong>{{ metrics.pending_installation }}</strong><small>Pending instalasi</small></p></div>
+</section>
+
+<section class="control-focus-grid">
+    <article class="panel control-attention">
+        <div class="section-heading"><div><p class="eyebrow">ATTENTION REQUIRED</p><h3>Prioritas tindak lanjut</h3><p>Urutan berdasarkan urgensi workflow dokumen.</p></div><span class="attention-total">{{ attention|length }} item</span></div>
+        <div class="control-attention-list">
+            {% for item in attention %}
+            <a href="{% url item.url_name item.url_pk %}"><span class="attention-severity {{ item.style }}"></span><div><strong>{{ item.title }}</strong><small>{{ item.detail }}</small></div><b>{{ item.age }}</b><span>→</span></a>
+            {% empty %}<div class="empty-state compact"><strong>Tidak ada isu aktif</strong><p>Semua dokumen berjalan sesuai alur.</p></div>{% endfor %}
         </div>
+    </article>
+    <article class="panel review-aging-panel">
+        <div class="section-heading"><div><p class="eyebrow">REVIEW AGING</p><h3>Umur review Nokia</h3><p>Merah jika menunggu 5 hari atau lebih.</p></div></div>
+        <div class="review-aging-list">
+            {% for item in review_aging %}
+            <a href="{% url item.url_name item.url_pk %}"><span class="age-ring {{ item.style }}">{{ item.days }}</span><p><strong>{{ item.title }}</strong><small>{{ item.batch }} · hari dalam review</small></p><span>→</span></a>
+            {% empty %}<div class="empty-state compact"><strong>Tidak ada dokumen review</strong><p>Belum ada dokumen menunggu Nokia.</p></div>{% endfor %}
+        </div>
+    </article>
+</section>
+
+<section class="panel control-register" data-control-register>
+    <div class="control-register-heading">
+        <div><p class="eyebrow">INSTALLATION BATCH REGISTER</p><h3>Progress per installation batch</h3><p>Cari, filter, lalu buka dokumen yang perlu ditindaklanjuti.</p></div>
+        <div class="quick-filter-group" aria-label="Filter cepat"><button type="button" data-control-quick="review">Under Review</button><button type="button" data-control-quick="revision">Perlu Revisi</button><button type="button" data-control-quick="not-started">Belum Upload</button></div>
     </div>
-    <div class="panel">
-        <div class="section-heading"><div><p class="eyebrow">PROJECT SIGNAL</p><h3>Status operasional</h3></div></div>
-        <div class="project-signal-list">
-            <div><span class="metric-icon green">✓</span><p><strong>{{ metrics.approved }} dokumen Approved</strong><small>Siap untuk pelaporan progres</small></p></div>
-            <div><span class="metric-icon blue">R</span><p><strong>{{ metrics.under_review }} dalam review</strong><small>Nokia dapat mengunduh dan memberi komentar</small></p></div>
-            <div><span class="metric-icon amber">I</span><p><strong>{{ metrics.pending_installation }} batch pending instalasi</strong><small>Dokumen belum dapat diunggah</small></p></div>
+    <div class="control-toolbar">
+        <label class="control-search"><span>Cari site atau Site ID</span><input type="search" placeholder="Contoh: Koba atau SUM-BB-KBA..." data-control-search></label>
+        <label><span>Tipe dokumen</span><select data-control-type><option value="">Semua dokumen</option><option value="qc">QC</option><option value="atp">ATP</option><option value="fatp">FATP</option></select></label>
+        <label><span>Status</span><select data-control-status><option value="">Semua status</option><option value="complete">Approved</option><option value="review">Under Review</option><option value="revision">Perlu Revisi</option><option value="progress">In Progress</option><option value="not-started">Belum Upload</option><option value="pending">Pending Instalasi</option></select></label>
+        <label><span>PIC</span><select data-control-pic><option value="">Semua PIC</option>{% for pic in pic_options %}<option value="{{ pic|lower }}">{{ pic }}</option>{% endfor %}</select></label>
+        <button class="button ghost filter-reset" type="button" data-control-reset>Reset</button><span class="control-result"><b data-control-count>{{ batch_rows|length }}</b> batch</span>
+    </div>
+    <div class="control-table-wrap">
+        <div class="control-table-head" aria-hidden="true"><span>Site / Site ID</span><span>Batch & PIC</span><span>QC</span><span>ATP</span><span>FATP</span><span>Progress</span><span>Update</span><span></span></div>
+        <div class="control-table-body">
+            {% for row in batch_rows %}
+            <article class="control-table-row" data-control-row data-search="{{ row.site.name|lower }} {{ row.site.tower_id|lower }} {{ row.site.region|lower }} {{ row.batch.label|lower }} {{ row.batch.pic_name|lower }}" data-overall="{{ row.summary.filter }}" data-qc="{{ row.qc_filter }}" data-atp="{{ row.atp_filter }}" data-fatp="{{ row.fatp_filter }}" data-pic="{{ row.batch.pic_name|lower }}">
+                <div class="control-site"><span>{{ row.site.sequence_no|stringformat:'02d' }}</span><p><strong>{{ row.site.name }}</strong><small>{{ row.site.tower_id }} · {{ row.site.region }}</small></p></div>
+                <div class="control-batch" data-label="Batch"><strong>{{ row.batch.label }}</strong><small>{{ row.batch.pic_name|default:'PIC belum diisi' }}</small></div>
+                <div data-label="QC">{% if row.qc %}<a href="{% url 'document_detail' row.qc.pk %}" class="badge {{ row.qc.status|status_class }}">{{ row.qc.get_status_display }}</a>{% else %}<span class="badge neutral">-</span>{% endif %}</div>
+                <div data-label="ATP">{% if row.atp %}<a href="{% url 'document_detail' row.atp.pk %}" class="badge {{ row.atp.status|status_class }}">{{ row.atp.get_status_display }}</a>{% else %}<span class="badge neutral">-</span>{% endif %}</div>
+                <div data-label="FATP">{% if row.fatp %}<a href="{% url 'document_detail' row.fatp.pk %}" class="badge {{ row.fatp.status|status_class }}">{{ row.fatp.get_status_display }}</a>{% else %}<span class="badge neutral">-</span>{% endif %}</div>
+                <div class="control-row-progress" data-label="Progress"><p><strong>{{ row.progress }}%</strong><small>{{ row.approved }}/{{ row.total }}</small></p><div><span style="width:{{ row.progress }}%"></span></div></div>
+                <div class="control-updated" data-label="Update"><strong>{{ row.last_updated|date:'d M Y' }}</strong><small>{{ row.summary.label }}</small></div>
+                <a class="control-open" href="{% url 'batch_detail' row.batch.pk %}" aria-label="Buka {{ row.site.name }} {{ row.batch.label }}">→</a>
+            </article>
+            {% endfor %}
+            <div class="control-filter-empty" data-control-empty hidden><strong>Data tidak ditemukan</strong><p>Ubah pencarian atau reset filter yang dipilih.</p></div>
         </div>
     </div>
 </section>
 
-<section class="panel">
-    <div class="section-heading"><div><p class="eyebrow">AUDIT TRAIL</p><h3>Aktivitas terbaru</h3></div>{% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'TRIPLEE_ADMIN' %}<a href="{% url 'audit_log' %}">Buka audit log →</a>{% endif %}</div>
-    <div class="activity-stream">
-        {% for activity in recent_activity %}
-        <div><span class="activity-mark"></span><p><strong>{{ activity.actor|default:'System' }}</strong> {{ activity.description }}<small>{{ activity.created_at|date:'d M Y, H:i' }} WIB</small></p></div>
-        {% empty %}<div class="empty-state"><strong>Belum ada aktivitas</strong><p>Aktivitas pengguna akan muncul di sini.</p></div>{% endfor %}
-    </div>
+<section class="panel control-activity">
+    <div class="section-heading"><div><p class="eyebrow">LIVE AUDIT TRAIL</p><h3>Aktivitas terbaru</h3></div>{% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'TRIPLEE_ADMIN' %}<a href="{% url 'audit_log' %}">Buka audit log →</a>{% endif %}</div>
+    <div class="control-timeline">{% for activity in recent_activity %}<div><span></span><p><strong>{{ activity.actor|default:'System' }}</strong> {{ activity.description }}<small>{{ activity.created_at|date:'d M Y, H:i' }} WIB</small></p></div>{% empty %}<div class="empty-state compact"><p>Belum ada aktivitas.</p></div>{% endfor %}</div>
 </section>
 {% endblock %}

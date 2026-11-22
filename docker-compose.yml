@@ -35,6 +35,7 @@ services:
       - ${APP_DATA_DIR}/backups:/app/backups
       - ${APP_DATA_DIR}/documents:/app/documents
       - ${BRAND_LOGO_FILE:-/DATA/AppData/TRIPLE-E_DMS/logo.png}:/app/branding/logo.png:ro
+      - ${NOKIA_LOGO_FILE:-/DATA/AppData/TRIPLE-E_DMS/nokialogo.png}:/app/branding/nokialogo.png:ro
     depends_on:
       db:
         condition: service_healthy
