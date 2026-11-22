@@ -60,6 +60,7 @@ from .services.local_storage import (
     store_document_file,
 )
 from .services.notifications import notify_roles
+from .services.progress_pdf import build_progress_pdf
 from .services.progress_report import build_progress_report
 
 
@@ -267,6 +268,22 @@ def progress_report_export(request):
         report.getvalue(),
         content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     )
+    response["Content-Disposition"] = f'attachment; filename="{filename}"'
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+@login_required
+def progress_report_pdf(request):
+    report, filename = build_progress_pdf()
+    log_activity(
+        request,
+        "PROGRESS_REPORT_PDF_EXPORTED",
+        None,
+        "Laporan total progress dokumen diekspor ke PDF",
+        {"filename": filename},
+    )
+    response = HttpResponse(report.getvalue(), content_type="application/pdf")
     response["Content-Disposition"] = f'attachment; filename="{filename}"'
     response["Cache-Control"] = "no-store"
     return response
@@ -1058,3 +1075,5 @@ def backup_run(request):
     except Exception as exc:
         messages.error(request, f"Backup gagal: {exc}")
     return redirect("backup_status")
+
+
