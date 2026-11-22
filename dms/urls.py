@@ -11,6 +11,7 @@ urlpatterns = [
     path("change-password/", views.change_password, name="change_password"),
     path("branding/logo/", views.brand_logo, name="brand_logo"),
     path("", views.dashboard, name="dashboard"),
+    path("reports/total-progress.pdf", views.progress_report_pdf, name="progress_report_pdf"),
     path("reports/progress.xlsx", views.progress_report_export, name="progress_report_export"),
     path("sites/", views.site_list, name="site_list"),
     path("sites/<int:pk>/", views.site_detail, name="site_detail"),
@@ -39,3 +40,5 @@ urlpatterns = [
     path("backups/", views.backup_status, name="backup_status"),
     path("backups/run/", views.backup_run, name="backup_run"),
 ]
+
+

@@ -6,14 +6,20 @@
     <article class="progress-hero">
         <div class="progress-hero-head">
             <div>
-                <p class="eyebrow">PROJECT DOCUMENT READINESS</p>
-                <h1>Progress dokumen DWDM</h1>
-                <p>QC, ATP, dan FATP dari seluruh installation batch.</p>
+                <p class="eyebrow">DOCUMENT CONTROL OVERVIEW</p>
+                <h1>Total progress dokumen</h1>
+                <p>Ringkasan kesiapan QC, ATP, dan FATP untuk seluruh installation batch DWDM.</p>
             </div>
-            <a class="export-report-button" href="{% url 'progress_report_export' %}" data-file-download>
-                <span aria-hidden="true">⇩</span>
-                <span><strong>Export report</strong><small>Excel · data terbaru</small></span>
-            </a>
+            <div class="report-actions">
+                <a class="export-report-button primary" href="{% url 'progress_report_pdf' %}" data-file-download>
+                    <span class="file-badge" aria-hidden="true">PDF</span>
+                    <span><strong>Unduh laporan</strong><small>PDF resmi � detail lengkap</small></span>
+                </a>
+                <a class="export-report-button secondary" href="{% url 'progress_report_export' %}" data-file-download>
+                    <span class="file-badge" aria-hidden="true">XLS</span>
+                    <span><strong>Data kerja</strong><small>Excel � dapat difilter</small></span>
+                </a>
+            </div>
         </div>
         <div class="progress-hero-main">
             <div class="hero-progress-ring" style="--progress: {{ metrics.progress }}" aria-label="Progress {{ metrics.progress }} persen">
@@ -48,7 +54,7 @@
 <section class="metric-grid">
     <article class="metric-card"><span class="metric-icon cyan">S</span><div><strong>{{ metrics.sites }}</strong><p>Site fisik</p></div><small>DWDM project</small></article>
     <article class="metric-card"><span class="metric-icon blue">B</span><div><strong>{{ metrics.batches }}</strong><p>Installation batch</p></div><small>Tracking terpisah</small></article>
-    <article class="metric-card"><span class="metric-icon green">✓</span><div><strong>{{ metrics.sites_completed }}</strong><p>Site selesai</p></div><small>Semua dokumen approved</small></article>
+    <article class="metric-card"><span class="metric-icon green">V</span><div><strong>{{ metrics.sites_completed }}</strong><p>Site selesai</p></div><small>Semua dokumen approved</small></article>
     <article class="metric-card"><span class="metric-icon amber">P</span><div><strong>{{ metrics.sites_pending }}</strong><p>Site berjalan</p></div><small>Belum lengkap</small></article>
     <article class="metric-card"><span class="metric-icon red">!</span><div><strong>{{ metrics.sites_revision }}</strong><p>Site dengan revisi</p></div><small>Perlu tindak lanjut</small></article>
     <article class="metric-card"><span class="metric-icon blue">R</span><div><strong>{{ metrics.under_review }}</strong><p>Dokumen review</p></div><small>Menunggu catatan Nokia</small></article>
@@ -57,7 +63,7 @@
 <section class="panel document-progress-section">
     <div class="section-heading">
         <div><p class="eyebrow">BY DOCUMENT TYPE</p><h3>Progress QC, ATP & FATP</h3><p>Persentase Approved untuk setiap kelompok dokumen.</p></div>
-        <a href="{% url 'site_list' %}">Buka register →</a>
+        <a href="{% url 'site_list' %}">Buka register </a>
     </div>
     <div class="document-progress-grid">
         {% for item in type_summary %}
@@ -82,8 +88,8 @@
             {% for document in attention %}
             <a href="{% url 'document_detail' document.pk %}">
                 <span class="status-dot {{ document.status|status_class }}"></span>
-                <div><strong>{{ document.batch.site.name }} · {{ document.document_type }}</strong><small>{{ document.batch.label }} · {{ document.get_status_display }}</small></div>
-                <span>→</span>
+                <div><strong>{{ document.batch.site.name }} � {{ document.document_type }}</strong><small>{{ document.batch.label }} � {{ document.get_status_display }}</small></div>
+                <span></span>
             </a>
             {% empty %}<div class="empty-state"><strong>Tidak ada isu aktif</strong><p>Semua dokumen berjalan sesuai alur.</p></div>{% endfor %}
         </div>
@@ -91,7 +97,7 @@
     <div class="panel">
         <div class="section-heading"><div><p class="eyebrow">PROJECT SIGNAL</p><h3>Status operasional</h3></div></div>
         <div class="project-signal-list">
-            <div><span class="metric-icon green">✓</span><p><strong>{{ metrics.approved }} dokumen Approved</strong><small>Siap untuk pelaporan progres</small></p></div>
+            <div><span class="metric-icon green">V</span><p><strong>{{ metrics.approved }} dokumen Approved</strong><small>Siap untuk pelaporan progres</small></p></div>
             <div><span class="metric-icon blue">R</span><p><strong>{{ metrics.under_review }} dalam review</strong><small>Nokia dapat mengunduh dan memberi komentar</small></p></div>
             <div><span class="metric-icon amber">I</span><p><strong>{{ metrics.pending_installation }} batch pending instalasi</strong><small>Dokumen belum dapat diunggah</small></p></div>
         </div>
@@ -99,7 +105,7 @@
 </section>
 
 <section class="panel">
-    <div class="section-heading"><div><p class="eyebrow">AUDIT TRAIL</p><h3>Aktivitas terbaru</h3></div>{% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'TRIPLEE_ADMIN' %}<a href="{% url 'audit_log' %}">Buka audit log →</a>{% endif %}</div>
+    <div class="section-heading"><div><p class="eyebrow">AUDIT TRAIL</p><h3>Aktivitas terbaru</h3></div>{% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'TRIPLEE_ADMIN' %}<a href="{% url 'audit_log' %}">Buka audit log </a>{% endif %}</div>
     <div class="activity-stream">
         {% for activity in recent_activity %}
         <div><span class="activity-mark"></span><p><strong>{{ activity.actor|default:'System' }}</strong> {{ activity.description }}<small>{{ activity.created_at|date:'d M Y, H:i' }} WIB</small></p></div>
@@ -107,3 +113,5 @@
     </div>
 </section>
 {% endblock %}
+
+

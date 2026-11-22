@@ -693,6 +693,24 @@ class ProgressReportTests(TestCase):
         response = self.client.get(reverse("progress_report_export"))
         self.assertEqual(response.status_code, 302)
 
+    def test_progress_pdf_requires_login(self):
+        response = self.client.get(reverse("progress_report_pdf"))
+        self.assertEqual(response.status_code, 302)
+
+    @override_settings(BRAND_LOGO_PATH="/path/that/does/not/exist/logo.png")
+    def test_nokia_can_export_professional_total_progress_pdf(self):
+        self.client.force_login(self.reviewer)
+        response = self.client.get(reverse("progress_report_pdf"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response["Content-Type"], "application/pdf")
+        self.assertIn(
+            "TripleE_DWDM_Total_Progress_",
+            response["Content-Disposition"],
+        )
+        self.assertTrue(response.content.startswith(b"%PDF-"))
+        self.assertGreater(len(response.content), 5000)
+
     def test_nokia_can_export_auditable_progress_workbook(self):
         self.client.force_login(self.reviewer)
         response = self.client.get(reverse("progress_report_export"))
@@ -714,3 +732,5 @@ class ProgressReportTests(TestCase):
             InstallationBatch.objects.count() + 5,
         )
         self.assertTrue(workbook["Progress Site"]["H6"].value.startswith("=IF("))
+
+
