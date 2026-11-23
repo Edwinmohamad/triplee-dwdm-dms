@@ -4,19 +4,22 @@ Dashboard dan Document Management System untuk monitoring QC, ATP, dan FATP proy
 
 ## Cakupan MVP
 
-- 16 physical sites dan 18 installation batches dari tracker awal.
+- 16 physical sites dan 16 installation batches sesuai koreksi data proyek.
 - Register QC, ATP, dan FATP untuk setiap installation batch.
+- FATP Custom Builder khusus Super Admin untuk menyusun informasi perangkat, bagian, kolom, foto, caption, dan output PDF tanpa mengedit Word manual.
+- Folder foto Google Drive, PIC, progress, serta status QC/ATP/FATP dipisahkan per installation batch; site multi-batch tetap dihitung satu physical site.
 - Data PO, harga, expected value, SOW, dan equipment tidak disimpan.
 - Upload file ke storage lokal server CasaOS.
-- Preview PDF, gambar, dan dokumen Office langsung di browser tanpa public file link; download tetap terpisah.
+- Preview mengirim file asli dalam mode inline tanpa public file link; kemampuan tampil mengikuti dukungan browser.
 - Revision history Rev 0, Rev 1, dan seterusnya; satu revisi QC dapat memuat beberapa file.
 - Nokia dapat view, preview/download, dan memberi komentar tanpa akses keputusan status.
 - Keputusan Approve, Request Revision, atau Reject hanya dapat dicatat oleh Super Admin.
 - Role: Super Admin, Triple E Admin, Triple E Engineer, Nokia Reviewer, Nokia Viewer.
 - In-app notifications dan audit trail.
 - Dark mode global yang tersimpan otomatis untuk setiap browser.
-- Dashboard analitik dengan progress ring dan distribusi status dokumen.
-- Export report progres `.xlsx` per site dan installation batch.
+- Project Control Center dengan Attention Required, review aging, quick filter, serta register seluruh batch.
+- Export report progres `.xlsx` dan `.pdf` per site dan installation batch.
+- Tiga aksi upload: Draft, langsung Submit Review, dan Signed/TTD menjadi Approved khusus Super Admin.
 - Super Admin dapat menghapus file pada semua status dengan audit trail dan penyesuaian status otomatis.
 - Nama file ringkas: `FATP_Koba_SUM-BB-KBA-0057.docx`; nama asli tetap tercatat di metadata.
 - Backup PostgreSQL terenkripsi pada storage server.
@@ -32,7 +35,7 @@ Dashboard dan Document Management System untuk monitoring QC, ATP, dan FATP proy
 - `RESTORE.md` — prosedur pemulihan backup terenkripsi.
 - `docker-compose.yml` — service web, PostgreSQL, dan backup scheduler.
 - `.env.example` — seluruh konfigurasi tanpa secret asli.
-- `dms/management/commands/seed_initial_data.py` — data awal 16 site/18 batch.
+- `dms/management/commands/seed_initial_data.py` — data awal 16 site/16 batch.
 
 ## Quick validation
 

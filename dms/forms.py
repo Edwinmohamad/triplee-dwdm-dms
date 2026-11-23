@@ -6,9 +6,20 @@ from django.conf import settings
 from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AuthenticationForm
 from django.core.exceptions import ValidationError
+from urllib.parse import urlparse
 from django.utils import timezone
 
-from .models import DocumentComment, InstallationBatch, LoginAttempt, Review, User
+from .models import (
+    Document,
+    DocumentComment,
+    FatpBuilder,
+    FatpSection,
+    InstallationBatch,
+    LoginAttempt,
+    Review,
+    Site,
+    User,
+)
 
 
 class InitialSetupForm(forms.Form):
@@ -120,6 +131,32 @@ class BatchUpdateForm(forms.ModelForm):
         }
 
 
+class DriveFolderForm(forms.ModelForm):
+    class Meta:
+        model = InstallationBatch
+        fields = ["drive_folder_url"]
+        labels = {"drive_folder_url": "Link folder foto Google Drive"}
+        widgets = {
+            "drive_folder_url": forms.URLInput(
+                attrs={
+                    "placeholder": "https://drive.google.com/drive/folders/...",
+                    "autocomplete": "off",
+                }
+            )
+        }
+
+    def clean_drive_folder_url(self):
+        value = self.cleaned_data["drive_folder_url"].strip()
+        if not value:
+            return ""
+        parsed = urlparse(value)
+        if parsed.scheme != "https" or parsed.hostname != "drive.google.com":
+            raise ValidationError("Gunakan link folder resmi https://drive.google.com/...")
+        if "/folders/" not in parsed.path:
+            raise ValidationError("Link harus mengarah ke folder Google Drive, bukan satu file.")
+        return value
+
+
 class MultipleFileInput(forms.ClearableFileInput):
     allow_multiple_selected = True
 
@@ -182,6 +219,86 @@ class ReviewForm(forms.Form):
         if cleaned.get("decision") in {Review.Decision.REVISION_REQUIRED, Review.Decision.REJECTED} and not cleaned.get("comment", "").strip():
             raise ValidationError("Komentar wajib untuk Request Revision atau Reject.")
         return cleaned
+
+
+class ManualDocumentStatusForm(forms.Form):
+    status = forms.ChoiceField(
+        label="Status dokumen",
+        choices=[
+            (Document.Status.NOT_STARTED, "Belum Mulai"),
+            (Document.Status.DRAFT, "Draft"),
+            (Document.Status.UPLOADED, "Uploaded"),
+            (Document.Status.UNDER_REVIEW, "Under Review"),
+            (Document.Status.REVISION_REQUIRED, "Perlu Revisi"),
+            (Document.Status.APPROVED, "Approved"),
+            (Document.Status.REJECTED, "Rejected"),
+            (Document.Status.NOT_APPLICABLE, "N/A"),
+        ],
+    )
+    note = forms.CharField(
+        label="Catatan perubahan (opsional)",
+        required=False,
+        max_length=1000,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder": "Contoh: Dokumen signed/TTD sudah diterima.",
+            }
+        ),
+    )
+
+
+class FatpBuilderForm(forms.ModelForm):
+    class Meta:
+        model = FatpBuilder
+        fields = ["installation_title", "installation_date", "work_description"]
+        labels = {
+            "installation_title": "Judul pekerjaan",
+            "installation_date": "Tanggal instalasi",
+            "work_description": "Keterangan pekerjaan",
+        }
+        widgets = {
+            "installation_date": forms.DateInput(attrs={"type": "date"}),
+            "work_description": forms.Textarea(
+                attrs={
+                    "rows": 3,
+                    "placeholder": "Contoh: Instalasi DWDM dan integrasi power main/backup",
+                }
+            ),
+        }
+
+
+class FatpSectionForm(forms.ModelForm):
+    class Meta:
+        model = FatpSection
+        fields = ["title", "description", "columns", "page_break_before"]
+        labels = {
+            "title": "Nama bagian",
+            "description": "Keterangan bagian",
+            "columns": "Jumlah kolom foto",
+            "page_break_before": "Mulai di halaman baru",
+        }
+        widgets = {
+            "description": forms.Textarea(attrs={"rows": 2}),
+            "columns": forms.Select(choices=[(1, "1 kolom"), (2, "2 kolom"), (3, "3 kolom")]),
+        }
+
+    def clean_columns(self):
+        value = self.cleaned_data["columns"]
+        if value not in {1, 2, 3}:
+            raise ValidationError("Jumlah kolom harus 1, 2, atau 3.")
+        return value
+    note = forms.CharField(
+        label="Catatan perubahan",
+        required=False,
+        max_length=300,
+        widget=forms.Textarea(
+            attrs={
+                "rows": 3,
+                "placeholder": "Opsional, contoh: dokumen signed sudah diterima",
+            }
+        ),
+    )
 
 
 class CommentForm(forms.ModelForm):

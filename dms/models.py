@@ -87,6 +87,7 @@ class Site(models.Model):
     tower_id = models.CharField(max_length=80)
     name = models.CharField(max_length=160)
     sequence_no = models.PositiveSmallIntegerField(default=1)
+    drive_folder_url = models.URLField(max_length=500, blank=True)
 
     class Meta:
         ordering = ["sequence_no", "name"]
@@ -113,6 +114,7 @@ class InstallationBatch(models.Model):
     installed_at = models.DateField(null=True, blank=True)
     status = models.CharField(max_length=32, choices=Status.choices, default=Status.PENDING_INSTALLATION)
     notes = models.TextField(blank=True)
+    drive_folder_url = models.URLField(max_length=500, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -232,6 +234,99 @@ class DocumentAttachment(models.Model):
 
     def __str__(self):
         return f"{self.version} - {self.original_filename}"
+
+
+class FatpBuilder(models.Model):
+    document = models.OneToOneField(
+        Document,
+        on_delete=models.CASCADE,
+        related_name="fatp_builder",
+        limit_choices_to={"document_type": Document.Type.FATP},
+    )
+    installation_title = models.CharField(
+        max_length=220,
+        default="Installation Acceptance Test",
+    )
+    installation_date = models.DateField(null=True, blank=True)
+    work_description = models.TextField(blank=True)
+    updated_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="updated_fatp_builders",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"FATP Builder - {self.document.batch}"
+
+
+class FatpEquipment(models.Model):
+    builder = models.ForeignKey(
+        FatpBuilder,
+        on_delete=models.CASCADE,
+        related_name="equipment",
+    )
+    sequence_no = models.PositiveSmallIntegerField(default=1)
+    name = models.CharField(max_length=180)
+    model = models.CharField(max_length=160, blank=True)
+    quantity = models.PositiveSmallIntegerField(default=1)
+    notes = models.CharField(max_length=220, blank=True)
+
+    class Meta:
+        ordering = ["sequence_no", "pk"]
+
+    def __str__(self):
+        return f"{self.name} ({self.quantity})"
+
+
+class FatpSection(models.Model):
+    builder = models.ForeignKey(
+        FatpBuilder,
+        on_delete=models.CASCADE,
+        related_name="sections",
+    )
+    sequence_no = models.PositiveSmallIntegerField(default=1)
+    title = models.CharField(max_length=220)
+    description = models.TextField(blank=True)
+    columns = models.PositiveSmallIntegerField(default=2)
+    page_break_before = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["sequence_no", "pk"]
+
+    def __str__(self):
+        return f"{self.sequence_no}. {self.title}"
+
+
+class FatpPhoto(models.Model):
+    section = models.ForeignKey(
+        FatpSection,
+        on_delete=models.CASCADE,
+        related_name="photos",
+    )
+    sequence_no = models.PositiveSmallIntegerField(default=1)
+    storage_key = models.CharField(max_length=500, unique=True)
+    stored_filename = models.CharField(max_length=255)
+    original_filename = models.CharField(max_length=255)
+    mime_type = models.CharField(max_length=160)
+    file_size = models.PositiveBigIntegerField()
+    checksum_sha256 = models.CharField(max_length=64)
+    caption = models.CharField(max_length=220, blank=True)
+    uploaded_by = models.ForeignKey(
+        User,
+        on_delete=models.PROTECT,
+        related_name="uploaded_fatp_photos",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["sequence_no", "pk"]
+
+    def __str__(self):
+        return f"{self.section} - Foto {self.sequence_no}"
 
 
 class Review(models.Model):

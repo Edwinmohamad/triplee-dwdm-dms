@@ -11,6 +11,7 @@
         <label class="site-search"><span>Cari site atau Tower ID</span><input type="search" placeholder="Contoh: Mentigi atau SUM-BB..." data-site-search></label>
         <label><span>Region</span><select data-site-region><option value="">Semua region</option>{% for region in regions %}<option value="{{ region|lower }}">{{ region }}</option>{% endfor %}</select></label>
         <label><span>Status</span><select data-site-status><option value="">Semua status</option><option value="complete">Completed</option><option value="review">Under Review</option><option value="revision">Perlu Revisi</option><option value="progress">In Progress</option><option value="pending">Pending Instalasi</option></select></label>
+        <button class="button ghost site-filter-reset" type="button" data-site-reset>Reset</button>
         <span class="site-result-count"><b data-site-count>{{ sites|length }}</b> site ditampilkan</span>
     </div>
 

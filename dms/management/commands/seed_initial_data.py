@@ -17,10 +17,7 @@ SITES = [
         "region": "BANGKA BELITUNG",
         "tower_id": "SUM-BB-SGL-0238",
         "name": "HUT. SUNGAI LIAT",
-        "batches": [
-            (1, "Batch 1", "EDWIN", "INSTALLED", {"QC": "APPROVED", "ATP": "UNDER_REVIEW", "FATP": "UNDER_REVIEW"}),
-            (2, "Batch 2", "ROBI", "INSTALLED", {"QC": "REVISION_REQUIRED", "ATP": "NOT_STARTED", "FATP": "NOT_STARTED"}),
-        ],
+        "batches": [(1, "Batch 1", "EDWIN", "INSTALLED", {"QC": "APPROVED", "ATP": "UNDER_REVIEW", "FATP": "UNDER_REVIEW"})],
     },
     {
         "sequence": 3,
@@ -34,10 +31,7 @@ SITES = [
         "region": "BANGKA BELITUNG",
         "tower_id": "SUM-BB-TDN-0361",
         "name": "MENTIGI",
-        "batches": [
-            (1, "Batch 1", "ROBI", "INSTALLED", {"QC": "APPROVED", "ATP": "UNDER_REVIEW", "FATP": "UNDER_REVIEW"}),
-            (2, "Batch 2", "ROBI", "INSTALLED", {"QC": "NOT_STARTED", "ATP": "NOT_STARTED", "FATP": "NOT_STARTED"}),
-        ],
+        "batches": [(1, "Batch 1", "ROBI", "INSTALLED", {"QC": "APPROVED", "ATP": "UNDER_REVIEW", "FATP": "UNDER_REVIEW"})],
     },
     {
         "sequence": 5,
@@ -127,7 +121,7 @@ SITES = [
 
 
 class Command(BaseCommand):
-    help = "Create the Nokia DWDM project, 16 physical sites, 18 installation batches and document register."
+    help = "Create the Nokia DWDM project, 16 physical sites, 16 installation batches and document register."
 
     @transaction.atomic
     def handle(self, *args, **options):
@@ -163,10 +157,6 @@ class Command(BaseCommand):
                 batch_count += 1
                 for doc_type in [Document.Type.QC, Document.Type.ATP, Document.Type.FATP]:
                     legacy_note = "Status awal diimpor dari tracker Excel; file historis belum dihubungkan."
-                    if site.name == "MENTIGI" and batch_no == 2:
-                        legacy_note = "Sebelumnya dicatat combined dengan Mentigi Batch 1; register baru mewajibkan dokumen per batch."
-                    if site.name == "HUT. SUNGAI LIAT" and batch_no == 2:
-                        legacy_note = "Sebelumnya dicatat combined dengan Sungai Liat Batch 1; register baru mewajibkan dokumen per batch."
                     Document.objects.get_or_create(
                         batch=batch,
                         document_type=doc_type,

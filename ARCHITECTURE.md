@@ -26,7 +26,7 @@ flowchart TD
     V --> R[Internal Decisions and Comments]
 ```
 
-Mentigi dan Sungai Liat masing-masing mempunyai satu physical site dan dua installation batches. Total awal adalah 16 physical sites, 18 batches, dan 54 document registers.
+Mentigi dan HUT. Sungai Liat masing-masing mempunyai satu physical site dan satu installation batch. Total terkoreksi adalah 16 physical sites, 16 batches, dan 48 document registers.
 
 ## Entity relationship
 
@@ -61,8 +61,12 @@ erDiagram
 stateDiagram-v2
     [*] --> NotStarted
     NotStarted --> Uploaded: Triple E uploads
+    NotStarted --> UnderReview: Upload and submit
+    NotStarted --> Approved: Super Admin uploads signed file
     Uploaded --> UnderReview: Submit to Nokia
+    Uploaded --> Approved: Super Admin uploads signed file
     UnderReview --> Approved: Super Admin finalizes
+    UnderReview --> Approved: Upload signed revision
     UnderReview --> RevisionRequired: Super Admin requests revision
     UnderReview --> Rejected: Super Admin rejects internally
     RevisionRequired --> Uploaded: Upload next revision
@@ -76,13 +80,17 @@ Approved versions remain immutable. Reopening a document changes the register st
 
 | Role | View/download | Upload/submit | Review decision | User admin | Reopen approved |
 |---|:---:|:---:|:---:|:---:|:---:|
-| Super Admin | Ya | Ya | Ya, emergency override | Semua role | Ya |
+| Super Admin | Ya | Ya, termasuk Signed/TTD | Ya, termasuk direct Approved | Semua role | Ya |
 | Triple E Admin | Ya | Ya | Tidak | Selain Super Admin | Ya |
 | Triple E Engineer | Ya | Ya | Tidak | Tidak | Tidak |
 | Nokia Reviewer | Ya | Tidak | Tidak; komentar saja | Tidak | Tidak |
 | Nokia Viewer | Ya | Tidak | Tidak | Tidak | Tidak |
 
 Semua role dapat menambahkan komentar. Nokia mengakses file melalui endpoint DMS terautentikasi, tetapi tidak dapat menetapkan Approve, Reject, atau Request Revision. Keputusan status hanya tersedia untuk Super Admin.
+
+Form upload menyediakan tiga aksi. Draft menyimpan file tanpa mengunci revisi, Submit Review
+langsung mengubah status menjadi Under Review, sedangkan Signed/TTD mengubah status menjadi
+Approved dan hanya dapat digunakan oleh Super Admin. Semua aksi tercatat di audit trail.
 
 ## Security boundaries
 

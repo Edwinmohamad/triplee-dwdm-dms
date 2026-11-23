@@ -9,10 +9,10 @@ Hasil normalisasi awal:
 | Entitas | Jumlah | Aturan |
 |---|---:|---|
 | Physical site | 16 | Satu `tower_id` mewakili satu site fisik |
-| Installation batch | 18 | Setiap jadwal/gelombang instalasi menjadi batch terpisah |
-| Document register | 54 | QC, ATP, dan FATP untuk setiap batch |
+| Installation batch | 16 | Setiap site pada data final memiliki satu batch instalasi |
+| Document register | 48 | QC, ATP, dan FATP untuk setiap batch |
 
-Mentigi Batch 1 dan Batch 2 memakai `tower_id` yang sama, demikian juga Sungai Liat Batch 1 dan Batch 2. Keduanya tetap merupakan batch dokumen yang berbeda. Tanjung Pandan MTI dimulai dengan status `Pending Installation`, sehingga upload dokumennya terkunci sampai status instalasi diperbarui.
+Mentigi dan HUT. Sungai Liat masing-masing hanya memiliki Batch 1. Entri Batch 2 lama pada kedua site tersebut merupakan duplikasi dan dihapus melalui migration. Tanjung Pandan MTI dimulai dengan status `Pending Installation`, sehingga upload dokumennya terkunci sampai status instalasi diperbarui.
 
 Normalisasi status awal dari kolom `QC READY`, `ATP READY`, dan `FATP READY`:
 

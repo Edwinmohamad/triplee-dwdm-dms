@@ -114,6 +114,7 @@ DOCUMENT_STORAGE_DISPLAY_PATH = os.getenv(
     "/DATA/AppData/TRIPLE-E_DMS/data/documents",
 )
 BRAND_LOGO_PATH = os.getenv("BRAND_LOGO_PATH", "/app/branding/logo.png")
+NOKIA_LOGO_PATH = os.getenv("NOKIA_LOGO_PATH", "/app/branding/nokialogo.png")
 
 BACKUP_ENCRYPTION_KEY = os.getenv("BACKUP_ENCRYPTION_KEY", "")
 BACKUP_LOCAL_DIR = os.getenv("BACKUP_LOCAL_DIR", str(BASE_DIR / "backups"))

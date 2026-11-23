@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% load dms_tags %}
+{% block title %}Foto Instalasi · Triple E DMS{% endblock %}
+{% block page_title %}Foto Instalasi{% endblock %}
+{% block content %}
+<section class="photo-library" data-photo-library data-selected-site="{{ selected_id }}">
+    <header class="photo-library-header">
+        <div><p class="eyebrow">INSTALLATION PHOTO LIBRARY</p><h1>Folder foto per installation batch</h1><p>Satu site tetap dihitung satu kali. Seluruh batch, PIC, dokumen, progress, dan foldernya ditampilkan terpisah.</p></div>
+        <div class="photo-library-progress"><strong>{{ connected_count }}/{{ total_batches }}</strong><span>folder batch terhubung</span><div><i style="width:{% widthratio connected_count total_batches 100 %}%"></i></div></div>
+    </header>
+    <div class="photo-explorer panel">
+        <aside class="photo-site-pane">
+            <div class="photo-site-toolbar"><label><span>Cari site atau Site ID</span><input type="search" placeholder="Ketik nama site..." data-photo-search></label><div class="photo-filter-row"><select data-photo-region aria-label="Filter region"><option value="">Semua region</option>{% for region in regions %}<option value="{{ region|lower }}">{{ region }}</option>{% endfor %}</select><select data-photo-status aria-label="Filter status"><option value="">Semua status</option><option value="connected">Ada folder</option><option value="missing">Belum ada folder</option></select></div></div>
+            <div class="photo-site-list" role="listbox" aria-label="Daftar site">
+                {% for site in sites %}<button type="button" class="photo-site-item{% if site.pk|stringformat:'s' == selected_id %} active{% endif %}" data-photo-site="{{ site.pk }}" data-search="{{ site.name|lower }} {{ site.tower_id|lower }} {{ site.region|lower }}" data-region="{{ site.region|lower }}" data-status="{{ site.photo_status }}" role="option" aria-selected="{% if site.pk|stringformat:'s' == selected_id %}true{% else %}false{% endif %}"><span class="photo-folder-icon">▰</span><span><strong>{{ site.name }}</strong><small>{{ site.tower_id }} · {{ site.photo_batch_count }} batch</small></span><i class="{{ site.photo_status }}" title="{{ site.connected_batches }}/{{ site.photo_batch_count }} folder aktif"></i></button>{% endfor %}
+                <div class="photo-list-empty" data-photo-empty hidden><strong>Site tidak ditemukan</strong><span>Coba kata kunci atau filter lain.</span></div>
+            </div>
+        </aside>
+        <main class="photo-detail-pane" id="site-photo-detail">
+            {% for site in sites %}
+            <article class="photo-site-detail" data-photo-detail="{{ site.pk }}"{% if site.pk|stringformat:'s' != selected_id %} hidden{% endif %}>
+                <div class="photo-detail-heading"><span class="photo-detail-icon">▰</span><div><p class="eyebrow">SITE INSTALLATION BATCHES</p><h2>{{ site.name }}</h2><span>{{ site.tower_id }} · {{ site.region }} · {{ site.photo_batch_count }} installation batch</span></div><span class="photo-status-badge {% if site.connected_batches == site.photo_batch_count %}connected{% else %}missing{% endif %}">{{ site.connected_batches }}/{{ site.photo_batch_count }} folder aktif</span></div>
+                <div class="photo-batch-stack">
+                    {% for batch in site.batches.all %}
+                    <section class="photo-batch-card">
+                        <header><div><span class="photo-batch-number">B{{ batch.batch_no|stringformat:'02d' }}</span><div><h3>{{ batch.label }}</h3><p>PIC {{ batch.pic_name|default:'belum ditentukan' }}</p></div></div><span class="badge {{ batch.status|status_class }}">{{ batch.get_status_display }}</span></header>
+                        <div class="photo-batch-metrics"><div><small>Progress Approved</small><strong>{{ batch.photo_progress }}%</strong><span><i style="width:{{ batch.photo_progress }}%"></i></span></div><div class="photo-batch-docs">{% for document in batch.photo_documents %}<a href="{% url 'document_detail' document.pk %}"><b>{{ document.document_type }}</b><span class="badge {{ document.status|status_class }}">{{ document.get_status_display }}</span></a>{% endfor %}</div></div>
+                        {% if batch.drive_folder_url %}<div class="photo-folder-ready batch-folder-ready"><div><span>Google Drive · {{ batch.label }}</span><strong>Folder foto instalasi siap digunakan</strong><small>Folder ini hanya untuk {{ site.name }} - {{ batch.label }}.</small></div><div class="photo-primary-actions"><a class="button primary" href="{{ batch.drive_folder_url }}" target="_blank" rel="noopener noreferrer" data-external-navigation>Buka Foto ↗</a><button class="button secondary" type="button" data-copy-link="{{ batch.drive_folder_url }}">Salin Link</button></div></div>{% else %}<div class="photo-folder-empty batch-folder-empty"><span>▰</span><div><h3>Folder {{ batch.label }} belum terhubung</h3><p>Tambahkan link Google Drive khusus batch ini agar foto tidak tercampur dengan batch lainnya.</p></div></div>{% endif %}
+                        {% if request.user.role == 'SUPER_ADMIN' or request.user.role == 'TRIPLEE_ADMIN' %}<div class="photo-batch-admin"><form method="post" action="{% url 'drive_folder_update' batch.pk %}" class="photo-drive-form">{% csrf_token %}<label><span>Link folder {{ batch.label }}</span><input type="url" name="drive_folder_url" maxlength="500" value="{{ batch.drive_folder_url }}" placeholder="https://drive.google.com/drive/folders/..." autocomplete="off"></label><div><button class="button primary" type="submit">Simpan Folder</button>{% if batch.drive_folder_url %}<button class="button ghost" type="submit" data-clear-drive-link data-confirm-inline="Hapus link folder foto {{ site.name }} - {{ batch.label }}?">Hapus Link</button>{% endif %}</div></form></div>{% endif %}
+                    </section>
+                    {% endfor %}
+                </div>
+                <p class="photo-security-note">Gunakan akses <b>Restricted</b> dan tambahkan email penerima jika foto tidak boleh dibuka publik.</p>
+            </article>
+            {% empty %}<div class="photo-folder-empty"><h3>Belum ada site</h3><p>Tambahkan site terlebih dahulu untuk mengatur folder foto.</p></div>{% endfor %}
+        </main>
+    </div>
+</section>
+{% endblock %}
