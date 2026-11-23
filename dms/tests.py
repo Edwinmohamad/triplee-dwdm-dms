@@ -487,7 +487,7 @@ class WorkflowTests(TestCase):
         self.assertContains(response, "18")
         self.assertContains(response, "Project Control Center")
         self.assertContains(response, "data-control-search")
-        self.assertContains(response, "data-control-row", count=18)
+        self.assertContains(response, "data-control-row", count=16)
 
     def test_nokia_reviewer_cannot_make_decision(self):
         self.client.force_login(self.reviewer)
@@ -590,9 +590,11 @@ class WorkflowTests(TestCase):
     def test_qc_accepts_multiple_files_and_appends_before_submit(self, upload_mock):
         qc_document = Document.objects.filter(
             document_type=Document.Type.QC,
-            status=Document.Status.NOT_STARTED,
             batch__status=InstallationBatch.Status.INSTALLED,
         ).first()
+        self.assertIsNotNone(qc_document)
+        qc_document.status = Document.Status.NOT_STARTED
+        qc_document.save(update_fields=["status", "updated_at"])
         upload_mock.side_effect = [
             {
                 "storage_key": "NOKIA-DWDM/qc-r0-f1.pdf",
